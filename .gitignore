@@ -1,0 +1,38 @@
+# Archivos y carpetas de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env
+venv/
+ENV/
+
+# Archivos de entorno virtual
+*.env
+*.venv
+
+# Archivos de configuración de VS Code
+.vscode/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+*.log
+
+# Archivos de dependencias
+pip-log.txt
+
+# Archivos de ejecución de Windows
+*.bat
+*.ps1
+
+# Archivos de salida
+*.out
+*.tmp
+
+# Otros
+.idea/
+*.swp
