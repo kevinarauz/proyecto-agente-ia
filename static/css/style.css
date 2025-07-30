@@ -1,3 +1,23 @@
+/* Cadena de pensamiento */
+.cadena-pensamiento {
+    background: rgba(0, 123, 255, 0.05);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 8px;
+    border-left: 3px solid var(--primary-color);
+}
+
+.cadena-pensamiento ul {
+    padding-left: 20px;
+    margin-bottom: 0;
+}
+
+.cadena-pensamiento li {
+    margin-bottom: 4px;
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+
 /* Estilos personalizados para la aplicación de IA */
 
 :root {
@@ -132,6 +152,14 @@ header h1 {
 
 .modo-fallback {
     background-color: var(--warning-color);
+}
+
+.modo-clima-api {
+    background-color: #17a2b8;
+}
+
+.modo-busqueda-clima-api {
+    background-color: #6f42c1;
 }
 
 /* Animations */

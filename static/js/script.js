@@ -49,7 +49,21 @@ async function handleSubmit(e) {
     
     try {
         const respuesta = await enviarPreguntaAPI(pregunta, modo, modelo);
-        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado);
+        
+        // Extraer pasos intermedios si están disponibles
+        let pasos = null;
+        if (respuesta.pasos_intermedios && respuesta.pasos_intermedios.length > 0) {
+            pasos = respuesta.pasos_intermedios.map(paso => {
+                if (paso.action && paso.action_input) {
+                    return `Acción: ${paso.action} → "${paso.action_input}"`;
+                } else if (paso.observation) {
+                    return `Resultado: ${paso.observation.substring(0, 100)}...`;
+                }
+                return paso.toString().substring(0, 80) + '...';
+            });
+        }
+        
+        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos);
     } catch (error) {
         console.error('Error:', error);
         Swal.fire({
@@ -90,7 +104,7 @@ async function enviarPreguntaAPI(pregunta, modo, modelo) {
 }
 
 // Agregar mensaje al chat
-function agregarMensaje(texto, tipo, modo = null, modeloUsado = null) {
+function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = null) {
     const mensajeDiv = document.createElement('div');
     
     if (tipo === 'usuario') {
@@ -104,13 +118,13 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null) {
         let modoIcon = 'fas fa-robot';
         let modoBadge = '<span class="modo-badge modo-simple">Simple</span>';
         
-        if (modo === 'agente') {
+        if (modo === 'agente' || modo === 'agente_general') {
             modoIcon = 'fas fa-search';
             modoBadge = '<span class="modo-badge modo-agente">Agente</span>';
         } else if (modo === 'busqueda_rapida' || modo === 'busqueda_directa') {
             modoIcon = 'fas fa-bolt';
             modoBadge = '<span class="modo-badge modo-busqueda">Búsqueda Rápida</span>';
-        } else if (modo === 'simple_fallback') {
+        } else if (modo === 'simple_fallback' || modo === 'fallback_general') {
             modoIcon = 'fas fa-exclamation-triangle';
             modoBadge = '<span class="modo-badge modo-fallback">Fallback</span>';
         }
@@ -118,9 +132,23 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null) {
         const modeloBadge = modeloUsado ? 
             `<span class="modelo-badge">${modeloUsado === 'gemini-1.5-flash' ? '🧠 Gemini' : '🦙 Llama3'}</span>` : '';
         
+        // Agregar cadena de pensamiento si está disponible
+        let cadenaPensamiento = '';
+        if (pasos && pasos.length > 0) {
+            cadenaPensamiento = `
+                <div class="cadena-pensamiento mt-2" style="font-size: 0.85em; opacity: 0.8; border-left: 2px solid #007bff; padding-left: 10px;">
+                    <strong>🧠 Proceso de pensamiento:</strong>
+                    <ul class="mb-0 mt-1">
+                        ${pasos.map(paso => `<li>${paso}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
         mensajeDiv.innerHTML = `
             <i class="${modoIcon} me-2"></i>
             ${texto}
+            ${cadenaPensamiento}
             <div class="badges-container">
                 ${modoBadge}
                 ${modeloBadge}
@@ -158,61 +186,6 @@ function enviarPregunta(pregunta, modo) {
     // Trigger submit
     const event = new Event('submit');
     document.getElementById('chatForm').dispatchEvent(event);
-}
-
-// Ejecutar ejemplo de agente
-async function ejemploAgente() {
-    Swal.fire({
-        title: '🤖 Demo del Agente',
-        text: 'El agente ejecutará una búsqueda web de ejemplo. ¿Continuar?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#007bff',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Sí, ejecutar',
-        cancelButtonText: 'Cancelar'
-    }).then(async (result) => {
-        if (result.isConfirmed) {
-            setLoading(true);
-            
-            try {
-                const response = await fetch('/ejemplo-agente', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Agregar pregunta y respuesta al chat
-                agregarMensaje(data.pregunta, 'usuario');
-                agregarMensaje(data.respuesta, 'ia', data.modo);
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Demo Completado!',
-                    text: 'El agente ha ejecutado exitosamente una búsqueda web.',
-                    confirmButtonColor: '#007bff'
-                });
-                
-            } catch (error) {
-                console.error('Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error en Demo',
-                    text: 'Hubo un problema al ejecutar el demo del agente.',
-                    confirmButtonColor: '#007bff'
-                });
-            } finally {
-                setLoading(false);
-            }
-        }
-    });
 }
 
 // Limpiar chat
@@ -273,89 +246,91 @@ document.addEventListener('DOMContentLoaded', function() {
     validarInput(); // Validación inicial
 });
 
-// Función para probar consulta de clima
-async function probarClima() {
+// Función para demo general del agente
+async function demoGeneral() {
     try {
-        // Mostrar modal de selección
-        const { value: opcion } = await Swal.fire({
-            title: '🌤️ Probar Consulta de Clima',
-            text: 'Selecciona cómo quieres probar la consulta del clima:',
+        const { value: tipoDemo } = await Swal.fire({
+            title: '🌐 Demo Agente General',
+            text: 'Selecciona qué tipo de información quieres que busque el agente:',
             icon: 'question',
+            input: 'select',
+            inputOptions: {
+                'noticias': '📰 Noticias de IA',
+                'bitcoin': '₿ Precio Bitcoin',
+                'deportes': '⚽ Deportes recientes',
+                'tech': '💻 Noticias OpenAI',
+                'economia': '📈 Precio petróleo',
+                'general': '🌐 Noticias generales'
+            },
+            inputPlaceholder: 'Selecciona una opción',
             showCancelButton: true,
             confirmButtonColor: '#007bff',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: '⚡ Búsqueda Rápida',
-            cancelButtonText: '🔍 Modo Agente',
-            showDenyButton: true,
-            denyButtonText: '🎯 Respuesta Directa',
-            denyButtonColor: '#28a745'
+            confirmButtonText: '🚀 Ejecutar Demo',
+            cancelButtonText: 'Cancelar'
         });
 
-        if (opcion === true) {
-            // Búsqueda rápida
-            document.getElementById('modoSelect').value = 'busqueda_rapida';
-            preguntaInput.value = '¿Cuál es el clima actual en Quito, Ecuador?';
+        if (tipoDemo) {
+            setLoading(true);
             
-            // Trigger submit
-            const event = new Event('submit');
-            document.getElementById('chatForm').dispatchEvent(event);
+            const response = await fetch('/agente-general', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    tipo: tipoDemo,
+                    modelo: document.getElementById('modeloSelect').value
+                })
+            });
             
-        } else if (opcion === false) {
-            // Modo agente
-            document.getElementById('modoSelect').value = 'agente';
-            preguntaInput.value = '¿Cuál es el clima actual en Quito, Ecuador?';
-            
-            // Trigger submit
-            const event = new Event('submit');
-            document.getElementById('chatForm').dispatchEvent(event);
-            
-        } else if (opcion === null) {
-            // Respuesta directa (deny button)
-            try {
-                setLoading(true);
-                
-                const response = await fetch('/clima-directo', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        pregunta: '¿Cuál es el clima actual en Quito, Ecuador?',
-                        modelo: document.getElementById('modeloSelect').value,
-                        ciudad: 'Quito'
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Agregar pregunta y respuesta al chat
-                agregarMensaje('¿Cuál es el clima actual en Quito, Ecuador?', 'usuario');
-                agregarMensaje(data.respuesta, 'ia', data.modo, data.modelo_usado);
-                
-            } catch (error) {
-                console.error('Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Hubo un problema con la consulta directa de clima.',
-                    confirmButtonColor: '#007bff'
-                });
-            } finally {
-                setLoading(false);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            
+            const data = await response.json();
+            
+            // Extraer pasos intermedios si están disponibles
+            let pasos = null;
+            if (data.pasos_intermedios && data.pasos_intermedios.length > 0) {
+                pasos = data.pasos_intermedios.map(paso => {
+                    if (paso.action && paso.action_input) {
+                        return `Acción: ${paso.action} → "${paso.action_input}"`;
+                    } else if (paso.observation) {
+                        return `Resultado: ${paso.observation.substring(0, 100)}...`;
+                    }
+                    return paso.toString().substring(0, 80) + '...';
+                });
+            }
+            
+            agregarMensaje(data.pregunta, 'usuario');
+            agregarMensaje(data.respuesta, 'ia', data.modo, data.modelo_usado, pasos);
+            
+            const tipoEmoji = {
+                'noticias': '📰', 'bitcoin': '₿', 'deportes': '⚽', 
+                'tech': '💻', 'economia': '�', 'general': '🌐'
+            };
+            
+            Swal.fire({
+                icon: 'success',
+                title: `${tipoEmoji[tipoDemo]} Demo Completado`,
+                text: `El agente ha buscado información sobre ${data.tipo_demo} exitosamente.`,
+                confirmButtonColor: '#007bff',
+                timer: 3000
+            });
         }
         
     } catch (error) {
-        console.error('Error en prueba de clima:', error);
+        console.error('Error:', error);
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Hubo un problema al iniciar la prueba de clima.',
+            text: 'Hubo un problema al ejecutar el demo general.',
             confirmButtonColor: '#007bff'
         });
+    } finally {
+        setLoading(false);
     }
 }
+
+
