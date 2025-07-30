@@ -35,9 +35,10 @@
 
 /* Metadata y proceso de pensamiento */
 .metadata-info {
-    background: rgba(248, 249, 250, 0.8);
+    background: rgba(248, 249, 250, 0.95);
     border: 1px solid rgba(0,123,255,0.2);
     font-size: 0.8em;
+    color: #495057;
 }
 
 .metadata-info .row > div {
@@ -50,10 +51,12 @@
 }
 
 .paso-pensamiento {
-    background: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.9);
     border-radius: 6px;
     font-size: 0.85em;
     line-height: 1.4;
+    color: #212529;
+    border: 1px solid rgba(0,123,255,0.2);
 }
 
 .paso-pensamiento:last-child {
@@ -75,10 +78,12 @@
 
 .paso-pensamiento {
     padding: 8px;
-    background: rgba(0,123,255,0.05);
+    background: rgba(0,123,255,0.08);
     border-left: 3px solid var(--primary-color);
     border-radius: 4px;
     font-size: 0.9em;
+    color: #212529;
+    font-weight: 500;
 }
 
 .paso-pensamiento:last-child {
@@ -97,11 +102,12 @@
 
 /* Cadena de pensamiento */
 .cadena-pensamiento {
-    background: rgba(0, 123, 255, 0.05);
+    background: rgba(0, 123, 255, 0.08);
     border-radius: 8px;
     padding: 10px;
     margin-top: 8px;
     border-left: 3px solid var(--primary-color);
+    color: #212529;
 }
 
 .cadena-pensamiento ul {
@@ -112,7 +118,8 @@
 .cadena-pensamiento li {
     margin-bottom: 4px;
     font-size: 0.85em;
-    opacity: 0.8;
+    color: #495057;
+    font-weight: 500;
 }
 
 /* Estilos personalizados para la aplicación de IA */
@@ -136,11 +143,9 @@ body {
 
 /* Header Styles */
 header h1 {
-    background: linear-gradient(45deg, #007bff, #0056b3);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    font-weight: bold;
 }
 
 /* Card Styles */
@@ -193,11 +198,12 @@ header h1 {
 
 .mensaje-ia {
     background: linear-gradient(45deg, #ffffff, #f8f9fa);
-    color: var(--dark-color);
+    color: #212529;
     padding: 12px 18px;
     border-radius: 20px 20px 20px 5px;
     margin: 10px auto 10px 0;
     max-width: 80%;
+    font-weight: 500;
     word-wrap: break-word;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     border-left: 4px solid var(--primary-color);
@@ -374,4 +380,39 @@ header h1 {
         background: linear-gradient(45deg, #2d3748, #4a5568);
         color: #f7fafc;
     }
+}
+
+/* Mejoras adicionales de contraste */
+.text-muted {
+    color: #6c757d !important;
+}
+
+.badge {
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+/* Asegurar contraste en todos los textos */
+.card-body {
+    color: #212529;
+}
+
+.form-label {
+    color: #495057;
+    font-weight: 600;
+}
+
+.btn {
+    font-weight: 600;
+}
+
+/* Mejorar contraste de placeholders */
+.form-control::placeholder {
+    color: #6c757d;
+    opacity: 1;
+}
+
+/* Estilo para texto de carga */
+.text-primary {
+    color: #0056b3 !important;
 }
