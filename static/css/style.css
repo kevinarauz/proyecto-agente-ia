@@ -50,6 +50,30 @@
 }
 
 .paso-pensamiento {
+    background: rgba(255,255,255,0.7);
+    border-radius: 6px;
+    font-size: 0.85em;
+    line-height: 1.4;
+}
+
+.paso-pensamiento:last-child {
+    margin-bottom: 0 !important;
+}
+
+.proceso-pensamiento .card-body {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.proceso-pensamiento .border-primary {
+    border-color: #007bff !important;
+}
+
+.proceso-pensamiento .border-success {
+    border-color: #28a745 !important;
+}
+
+.paso-pensamiento {
     padding: 8px;
     background: rgba(0,123,255,0.05);
     border-left: 3px solid var(--primary-color);

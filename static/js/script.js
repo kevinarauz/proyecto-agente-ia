@@ -62,30 +62,39 @@ async function handleSubmit(e) {
         
         updateLoadingProgress(95, 'Finalizando respuesta...');
         
-        // Extraer pasos intermedios si están disponibles
+        // Extraer pasos intermedios y pensamientos si están disponibles
         let pasos = null;
+        let pensamientos = null;
+        
         if (respuesta.pasos_intermedios && respuesta.pasos_intermedios.length > 0) {
-            pasos = respuesta.pasos_intermedios.map(paso => {
+            pasos = respuesta.pasos_intermedios.map((paso, index) => {
                 if (paso.action && paso.action_input) {
-                    return `🔍 Ejecutó búsqueda: "${paso.action_input}"`;
-                } else if (paso.observation) {
-                    return `📊 Obtuvo resultado: ${paso.observation.substring(0, 150)}...`;
+                    return `� <strong>Paso ${paso.step || index + 1}:</strong> ${paso.thought || paso.action}<br>
+                            📥 <strong>Entrada:</strong> ${paso.action_input}<br>
+                            � <strong>Resultado:</strong> ${paso.observation.substring(0, 200)}...`;
                 }
-                return paso.toString().substring(0, 80) + '...';
+                return `📊 <strong>Paso ${index + 1}:</strong> ${paso.toString().substring(0, 150)}...`;
             });
         }
         
-        // Crear metadata
+        if (respuesta.pensamientos && respuesta.pensamientos.length > 0) {
+            pensamientos = respuesta.pensamientos;
+        } else if (!pasos) {
+            // Si no hay pasos ni pensamientos, crear uno básico
+            pensamientos = ['💭 Procesando consulta usando conocimiento base del modelo'];
+        }
+        
+        // Crear metadata mejorada
         const metadata = {
-            tiempoInicio: tiempoInicio,
-            tiempoFin: tiempoFin,
-            duracion: duracion,
-            iteraciones: respuesta.pasos_intermedios ? respuesta.pasos_intermedios.length : 0,
-            busquedas: respuesta.pasos_intermedios ? respuesta.pasos_intermedios.filter(p => p.action === 'web_search' || p.action === 'duckduckgo_search').length : 0
+            tiempoInicio: respuesta.metadata?.timestamp_inicio ? new Date(respuesta.metadata.timestamp_inicio * 1000) : tiempoInicio,
+            tiempoFin: respuesta.metadata?.timestamp_fin ? new Date(respuesta.metadata.timestamp_fin * 1000) : tiempoFin,
+            duracion: respuesta.metadata?.duracion || duracion,
+            iteraciones: respuesta.metadata?.iteraciones || 0,
+            busquedas: respuesta.metadata?.busquedas || 0
         };
         
         updateLoadingProgress(100, 'Completado!');
-        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos, metadata);
+        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos, metadata, pensamientos);
     } catch (error) {
         console.error('Error:', error);
         Swal.fire({
@@ -126,9 +135,10 @@ async function enviarPreguntaAPI(pregunta, modo, modelo) {
 }
 
 // Agregar mensaje al chat
-function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = null, metadata = null) {
+function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = null, metadata = null, pensamientos = null) {
     const mensajeDiv = document.createElement('div');
     const timestamp = new Date();
+    const uniqueId = Date.now() + Math.random().toString(36).substr(2, 9);
     
     if (tipo === 'usuario') {
         mensajeDiv.className = 'mensaje-usuario';
@@ -162,17 +172,35 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
         
         // Agregar proceso de pensamiento detallado si está disponible
         let procesoCompleto = '';
-        if (pasos && pasos.length > 0) {
+        if (pensamientos && pensamientos.length > 0) {
             procesoCompleto = `
                 <div class="proceso-pensamiento mt-3">
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${Date.now()}" aria-expanded="false">
-                        <i class="fas fa-brain me-1"></i>Ver proceso de pensamiento
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${uniqueId}" aria-expanded="false">
+                        <i class="fas fa-brain me-1"></i>Ver proceso de pensamiento (${pensamientos.length} pasos)
                     </button>
-                    <div class="collapse mt-2" id="pensamiento-${Date.now()}">
+                    <div class="collapse mt-2" id="pensamiento-${uniqueId}">
                         <div class="card card-body bg-light">
                             <h6 class="mb-3"><i class="fas fa-cogs me-1"></i>Proceso de razonamiento:</h6>
+                            ${pensamientos.map((pensamiento, index) => `
+                                <div class="paso-pensamiento mb-2 p-2 border-start border-3 border-primary">
+                                    ${pensamiento}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (pasos && pasos.length > 0) {
+            procesoCompleto = `
+                <div class="proceso-pensamiento mt-3">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${uniqueId}" aria-expanded="false">
+                        <i class="fas fa-brain me-1"></i>Ver pasos técnicos (${pasos.length} pasos)
+                    </button>
+                    <div class="collapse mt-2" id="pensamiento-${uniqueId}">
+                        <div class="card card-body bg-light">
+                            <h6 class="mb-3"><i class="fas fa-cogs me-1"></i>Pasos técnicos ejecutados:</h6>
                             ${pasos.map((paso, index) => `
-                                <div class="paso-pensamiento mb-2">
+                                <div class="paso-pensamiento mb-2 p-2 border-start border-3 border-success">
                                     <strong>Paso ${index + 1}:</strong> ${paso}
                                 </div>
                             `).join('')}
@@ -201,7 +229,7 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
                             Duración: ${metadata.duracion}s
                         </div>
                     </div>
-                    ${metadata.iteraciones ? `
+                    ${metadata.iteraciones !== undefined ? `
                         <div class="mt-1 small text-muted">
                             <i class="fas fa-layer-group me-1"></i>
                             Iteraciones: ${metadata.iteraciones} | 

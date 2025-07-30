@@ -5,7 +5,15 @@ import time
 from typing import Optional, Union, Tuple
 from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
-from langchain_community.chat_models import ChatOllama
+
+# Importar ChatOllama de la nueva ubicación (si está disponible), sino usar la anterior
+try:
+    from langchain_ollama import ChatOllama
+    print("✅ Usando langchain_ollama (versión actualizada)")
+except ImportError:
+    from langchain_community.chat_models import ChatOllama
+    print("⚠️ Usando langchain_community.chat_models (versión deprecada)")
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import AgentExecutor, create_react_agent
@@ -34,7 +42,8 @@ models = {}
 try:
     models['llama3'] = ChatOllama(
         model="llama3",
-        temperature=Config.DEFAULT_TEMPERATURE
+        base_url=Config.OLLAMA_BASE_URL,
+        # La temperatura se configurará en las invocaciones específicas
     )
     print("✅ Llama3 configurado correctamente")
 except Exception as e:
@@ -313,7 +322,19 @@ simple_chat_prompt = ChatPromptTemplate.from_messages([
 simple_chains = {}
 for model_name, model_instance in models.items():
     if model_instance is not None:
-        simple_chains[model_name] = simple_chat_prompt | model_instance | StrOutputParser()
+        # Configurar chain con temperatura si es posible
+        if model_name == 'llama3':
+            # Para ChatOllama, configurar parámetros usando bind
+            configured_model = model_instance.bind(temperature=Config.DEFAULT_TEMPERATURE)
+            simple_chains[model_name] = simple_chat_prompt | configured_model | StrOutputParser()
+        elif model_name == 'gemini-1.5-flash':
+            # Para Gemini, configurar temperatura usando bind
+            configured_model = model_instance.bind(temperature=Config.DEFAULT_TEMPERATURE)
+            simple_chains[model_name] = simple_chat_prompt | configured_model | StrOutputParser()
+        else:
+            # Fallback sin temperatura específica
+            simple_chains[model_name] = simple_chat_prompt | model_instance | StrOutputParser()
+        
         print(f"✅ Chat simple {model_name} configurado")
 
 @app.route('/')
@@ -340,39 +361,65 @@ def chat() -> Union[Response, Tuple[Response, int]]:
             # Usar el agente para preguntas que puedan requerir búsqueda web
             try:
                 tiempo_inicio = time.time()
+                print(f"🤖 Iniciando agente {modelo_seleccionado} para: {pregunta[:50]}...")
+                
+                # Ejecutar el agente
                 respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
                 tiempo_fin = time.time()
                 duracion = round(tiempo_fin - tiempo_inicio, 2)
                 
+                print(f"✅ Agente completado en {duracion}s")
+                
                 # Extraer pasos intermedios si están disponibles
                 pasos_intermedios = []
                 busquedas_count = 0
+                pensamientos = []
+                
                 if 'intermediate_steps' in respuesta_completa:
-                    for paso in respuesta_completa['intermediate_steps']:
+                    print(f"📊 Procesando {len(respuesta_completa['intermediate_steps'])} pasos intermedios...")
+                    
+                    for i, paso in enumerate(respuesta_completa['intermediate_steps']):
                         if len(paso) >= 2:
                             accion = paso[0]
                             observacion = paso[1]
                             
                             # Contar búsquedas
-                            if accion.tool in ['web_search', 'duckduckgo_search']:
+                            if hasattr(accion, 'tool') and accion.tool in ['web_search', 'duckduckgo_search']:
                                 busquedas_count += 1
+                                pensamientos.append(f"🔍 Realizando búsqueda: '{accion.tool_input}'")
                             
-                            pasos_intermedios.append({
-                                'action': accion.tool,
-                                'action_input': accion.tool_input,
-                                'observation': observacion[:300] + '...' if len(observacion) > 300 else observacion
-                            })
+                            # Agregar información del paso
+                            paso_info = {
+                                'step': i + 1,
+                                'action': accion.tool if hasattr(accion, 'tool') else str(accion),
+                                'action_input': accion.tool_input if hasattr(accion, 'tool_input') else str(accion),
+                                'observation': observacion[:500] + '...' if len(str(observacion)) > 500 else str(observacion),
+                                'thought': f"Ejecutando {accion.tool}" if hasattr(accion, 'tool') else "Procesando información"
+                            }
+                            pasos_intermedios.append(paso_info)
+                            
+                            # Agregar pensamiento formateado
+                            if hasattr(accion, 'tool'):
+                                pensamientos.append(f"💭 Paso {i+1}: Usando herramienta '{accion.tool}' con entrada: '{accion.tool_input}'")
+                                pensamientos.append(f"📋 Resultado: {observacion[:200]}..." if len(str(observacion)) > 200 else f"📋 Resultado: {observacion}")
+                else:
+                    print("ℹ️ No se encontraron pasos intermedios")
+                    # Para consultas simples, agregar un pensamiento básico
+                    pensamientos.append("💭 Procesando consulta directamente sin necesidad de búsquedas web")
                 
                 return jsonify({
                     'respuesta': respuesta_completa['output'],
                     'modo': 'agente',
                     'modelo_usado': modelo_seleccionado,
                     'pasos_intermedios': pasos_intermedios,
+                    'pensamientos': pensamientos,
                     'metadata': {
                         'duracion': duracion,
                         'iteraciones': len(pasos_intermedios),
                         'busquedas': busquedas_count,
-                        'timestamp': time.time()
+                        'timestamp': time.time(),
+                        'timestamp_inicio': tiempo_inicio,
+                        'timestamp_fin': tiempo_fin
                     }
                 })
             except Exception as e:
