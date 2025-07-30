@@ -103,8 +103,13 @@ si es posible
 modelo llama
 
 ollama pull gemma3
+
+
 ollama pull llama3
+4.7gb
+
 ollama pull gemma:2b
+1.7gb
 
 ollama list
 

@@ -356,6 +356,14 @@ No todos los modelos son iguales. Aquí tienes una comparación rápida de los m
 
 **B** = Billones (Miles de millones) de parámetros. Más parámetros generalmente significan mayor capacidad, pero también mayores requisitos de hardware.
 
+> **💡 Explora Más Modelos:** Para ver la lista completa de modelos disponibles, incluyendo diferentes versiones de Llama, Gemma, Phi-3, Mistral, CodeLlama y muchos otros, visita la biblioteca oficial de Ollama: [https://ollama.com/library](https://ollama.com/library)
+> 
+> Allí encontrarás modelos especializados para diferentes tareas como:
+> - **CodeLlama**: Optimizado para programación
+> - **Mistral**: Excelente para tareas multilingües
+> - **Neural Chat**: Enfocado en conversaciones naturales
+> - **Llama 3.1, 3.2**: Versiones más recientes con mejores capacidades
+
 ### e) Usando Modelos Locales como una API
 La gran ventaja de Ollama es que, por defecto, **expone cualquier modelo que ejecutes como una API REST en tu `localhost`**. Esto te permite desarrollar tu aplicación consumiendo una API local gratuita, y si en el futuro necesitas más potencia, solo tienes que cambiar la URL a un proveedor de API en la nube.
 
