@@ -81,26 +81,29 @@ def get_model(model_name: str) -> Optional[Union[ChatOllama, ChatGoogleGenerativ
 # Configurar herramientas para el agente
 tools = [DuckDuckGoSearchRun()]
 
-# Usar prompt optimizado para Llama3
+# Prompt optimizado para búsquedas eficientes
 agent_prompt = PromptTemplate.from_template("""
-Answer the following questions as best you can. You have access to the following tools:
+Eres un asistente de IA especializado en proporcionar respuestas precisas y actuales. Tienes acceso a herramientas de búsqueda web.
 
+Herramientas disponibles:
 {tools}
 
-Use the following format:
+IMPORTANTE: 
+- Usa la búsqueda web SOLO cuando necesites información actual/en tiempo real
+- Para preguntas generales, responde directamente sin buscar
+- Si buscas, usa términos específicos y concisos
+- Proporciona respuestas en español
 
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+Formato:
+Question: la pregunta que debes responder
+Thought: qué debo hacer para responder esta pregunta
+Action: la acción a realizar, debe ser una de [{tool_names}]
+Action Input: el texto específico para buscar
+Observation: el resultado de la búsqueda
+Thought: ahora tengo la información necesaria
+Final Answer: la respuesta final completa en español
 
-Begin!
-
-Question: {input}
+Pregunta: {input}
 Thought:{agent_scratchpad}
 """)
 
@@ -114,8 +117,10 @@ for model_name, model_instance in models.items():
                 agent=agent, 
                 tools=tools, 
                 verbose=True,
-                max_iterations=3,
-                handle_parsing_errors=True
+                max_iterations=6,  # Aumentado para permitir más búsquedas
+                max_execution_time=30,  # Límite de tiempo de 30 segundos
+                handle_parsing_errors=True,
+                return_intermediate_steps=True
             )
             print(f"✅ Agente {model_name} creado correctamente")
         except Exception as e:
@@ -164,13 +169,23 @@ def chat() -> Union[Response, Tuple[Response, int]]:
                     'modelo_usado': modelo_seleccionado
                 })
             except Exception as e:
-                print(f"Error en agente {modelo_seleccionado}: {e}")
+                error_msg = str(e)
+                print(f"Error en agente {modelo_seleccionado}: {error_msg}")
+                
+                # Manejo específico para diferentes tipos de errores
+                if "iteration limit" in error_msg.lower() or "time limit" in error_msg.lower():
+                    fallback_msg = f"⚠️ La búsqueda tomó más tiempo del esperado. Intentando respuesta rápida...\n\n"
+                elif "parsing" in error_msg.lower():
+                    fallback_msg = f"⚠️ Hubo un problema procesando la búsqueda. Usando respuesta directa...\n\n"
+                else:
+                    fallback_msg = f"⚠️ Error en búsqueda web. Usando modo simple...\n\n"
+                
                 # Fallback a chat simple si el agente falla
                 if modelo_seleccionado in simple_chains:
                     respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
                     return jsonify({
-                        'respuesta': f"[Modo Simple] {respuesta}",
-                        'modo': 'simple',
+                        'respuesta': f"{fallback_msg}{respuesta}",
+                        'modo': 'simple_fallback',
                         'modelo_usado': modelo_seleccionado
                     })
                 else:
@@ -229,6 +244,58 @@ def ejemplo_agente() -> Union[Response, Tuple[Response, int]]:
         
     except Exception as e:
         return jsonify({'error': f'Error en ejemplo de agente: {str(e)}'}), 500
+
+@app.route('/busqueda-rapida', methods=['POST'])
+def busqueda_rapida() -> Union[Response, Tuple[Response, int]]:
+    """Endpoint optimizado para búsquedas web rápidas"""
+    try:
+        data = request.get_json()
+        pregunta = data.get('pregunta', '')
+        modelo_seleccionado = data.get('modelo', available_models[0] if available_models else 'gemini-1.5-flash')
+        
+        if not pregunta:
+            return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
+        
+        # Búsqueda directa con DuckDuckGo sin agente complejo
+        search_tool = DuckDuckGoSearchRun()
+        
+        try:
+            # Hacer búsqueda directa
+            search_results = search_tool.invoke(pregunta)
+            
+            # Usar el modelo para resumir y formatear los resultados
+            modelo = get_model(modelo_seleccionado)
+            if modelo and modelo_seleccionado in simple_chains:
+                prompt_busqueda = f"""
+                Basándote en los siguientes resultados de búsqueda, proporciona una respuesta clara y concisa en español para la pregunta: "{pregunta}"
+
+                Resultados de búsqueda:
+                {search_results}
+
+                Respuesta:
+                """
+                
+                respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_busqueda})
+                
+                return jsonify({
+                    'respuesta': respuesta,
+                    'modo': 'busqueda_rapida',
+                    'modelo_usado': modelo_seleccionado,
+                    'fuente': 'DuckDuckGo'
+                })
+            else:
+                return jsonify({
+                    'respuesta': f"Resultados de búsqueda:\n\n{search_results}",
+                    'modo': 'busqueda_directa',
+                    'modelo_usado': 'ninguno',
+                    'fuente': 'DuckDuckGo'
+                })
+                
+        except Exception as search_error:
+            return jsonify({'error': f'Error en búsqueda: {str(search_error)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'Error en búsqueda rápida: {str(e)}'}), 500
 
 if __name__ == '__main__':
     print("🤖 Iniciando aplicación de IA con Agentes...")

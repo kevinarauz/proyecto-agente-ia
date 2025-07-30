@@ -126,6 +126,14 @@ header h1 {
     background-color: var(--success-color);
 }
 
+.modo-busqueda {
+    background-color: #ff6b35;
+}
+
+.modo-fallback {
+    background-color: var(--warning-color);
+}
+
 /* Animations */
 @keyframes slideInRight {
     from {

@@ -65,7 +65,12 @@ async function handleSubmit(e) {
 
 // Enviar pregunta a la API
 async function enviarPreguntaAPI(pregunta, modo, modelo) {
-    const response = await fetch('/chat', {
+    let endpoint = '/chat';
+    if (modo === 'busqueda_rapida') {
+        endpoint = '/busqueda-rapida';
+    }
+    
+    const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -96,10 +101,19 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null) {
         `;
     } else if (tipo === 'ia') {
         mensajeDiv.className = 'mensaje-ia';
-        const modoIcon = modo === 'agente' ? 'fas fa-search' : 'fas fa-robot';
-        const modoBadge = modo === 'agente' ? 
-            '<span class="modo-badge modo-agente">Agente</span>' : 
-            '<span class="modo-badge modo-simple">Simple</span>';
+        let modoIcon = 'fas fa-robot';
+        let modoBadge = '<span class="modo-badge modo-simple">Simple</span>';
+        
+        if (modo === 'agente') {
+            modoIcon = 'fas fa-search';
+            modoBadge = '<span class="modo-badge modo-agente">Agente</span>';
+        } else if (modo === 'busqueda_rapida' || modo === 'busqueda_directa') {
+            modoIcon = 'fas fa-bolt';
+            modoBadge = '<span class="modo-badge modo-busqueda">Búsqueda Rápida</span>';
+        } else if (modo === 'simple_fallback') {
+            modoIcon = 'fas fa-exclamation-triangle';
+            modoBadge = '<span class="modo-badge modo-fallback">Fallback</span>';
+        }
         
         const modeloBadge = modeloUsado ? 
             `<span class="modelo-badge">${modeloUsado === 'gemini-1.5-flash' ? '🧠 Gemini' : '🦙 Llama3'}</span>` : '';
