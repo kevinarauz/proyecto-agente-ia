@@ -102,7 +102,20 @@ header h1 {
     font-size: 0.7em;
     padding: 2px 8px;
     border-radius: 10px;
-    margin-left: 10px;
+    margin-left: 5px;
+}
+
+.modelo-badge {
+    font-size: 0.7em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background-color: var(--warning-color);
+    color: var(--dark-color);
+    margin-left: 5px;
+}
+
+.badges-container {
+    margin-top: 5px;
 }
 
 .modo-simple {

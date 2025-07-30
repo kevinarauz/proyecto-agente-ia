@@ -38,6 +38,7 @@ async function handleSubmit(e) {
     if (!pregunta) return;
     
     const modo = document.getElementById('modoSelect').value;
+    const modelo = document.getElementById('modeloSelect').value;
     
     // Agregar mensaje del usuario al chat
     agregarMensaje(pregunta, 'usuario');
@@ -47,8 +48,8 @@ async function handleSubmit(e) {
     setLoading(true);
     
     try {
-        const respuesta = await enviarPreguntaAPI(pregunta, modo);
-        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo);
+        const respuesta = await enviarPreguntaAPI(pregunta, modo, modelo);
+        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado);
     } catch (error) {
         console.error('Error:', error);
         Swal.fire({
@@ -63,7 +64,7 @@ async function handleSubmit(e) {
 }
 
 // Enviar pregunta a la API
-async function enviarPreguntaAPI(pregunta, modo) {
+async function enviarPreguntaAPI(pregunta, modo, modelo) {
     const response = await fetch('/chat', {
         method: 'POST',
         headers: {
@@ -71,7 +72,8 @@ async function enviarPreguntaAPI(pregunta, modo) {
         },
         body: JSON.stringify({
             pregunta: pregunta,
-            modo: modo
+            modo: modo,
+            modelo: modelo
         })
     });
     
@@ -83,7 +85,7 @@ async function enviarPreguntaAPI(pregunta, modo) {
 }
 
 // Agregar mensaje al chat
-function agregarMensaje(texto, tipo, modo = null) {
+function agregarMensaje(texto, tipo, modo = null, modeloUsado = null) {
     const mensajeDiv = document.createElement('div');
     
     if (tipo === 'usuario') {
@@ -99,10 +101,16 @@ function agregarMensaje(texto, tipo, modo = null) {
             '<span class="modo-badge modo-agente">Agente</span>' : 
             '<span class="modo-badge modo-simple">Simple</span>';
         
+        const modeloBadge = modeloUsado ? 
+            `<span class="modelo-badge">${modeloUsado === 'gemini-1.5-flash' ? '🧠 Gemini' : '🦙 Llama3'}</span>` : '';
+        
         mensajeDiv.innerHTML = `
             <i class="${modoIcon} me-2"></i>
             ${texto}
-            ${modoBadge}
+            <div class="badges-container">
+                ${modoBadge}
+                ${modeloBadge}
+            </div>
         `;
     }
     
@@ -113,14 +121,18 @@ function agregarMensaje(texto, tipo, modo = null) {
 // Controlar estado de carga
 function setLoading(isLoading) {
     if (isLoading) {
-        loadingModal.show();
         enviarBtn.disabled = true;
         preguntaInput.disabled = true;
+        preguntaInput.blur(); // Quitar el foco del input antes de mostrar el modal
+        loadingModal.show();
     } else {
         loadingModal.hide();
         enviarBtn.disabled = false;
         preguntaInput.disabled = false;
-        preguntaInput.focus();
+        // Dar un pequeño delay antes de enfocar para evitar conflictos con el modal
+        setTimeout(() => {
+            preguntaInput.focus();
+        }, 100);
     }
 }
 

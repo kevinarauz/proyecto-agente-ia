@@ -4,6 +4,7 @@ from typing import Optional
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from langchain_community.chat_models import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
@@ -14,27 +15,68 @@ from config import Config
 # Cargar variables de entorno
 load_dotenv()
 
+# Cargar variables de entorno
+load_dotenv()
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
-print("🤖 Configurando modelo Llama3 con Ollama...")
+print("🤖 Configurando modelos de IA...")
 
-# Validar que Ollama esté disponible
-if not Config.validate_config():
-    print("❌ Error: Ollama no está disponible")
-    exit(1)
+# Configurar ambos modelos de IA
+models = {}
 
-# Configurar el modelo de IA local con Ollama
+# Configurar Llama3 (local)
 try:
-    llm = ChatOllama(
+    models['llama3'] = ChatOllama(
         model="llama3",
         temperature=Config.DEFAULT_TEMPERATURE
     )
-    print("✅ Modelo Llama3 configurado correctamente")
+    print("✅ Llama3 configurado correctamente")
 except Exception as e:
-    print(f"❌ Error configurando Llama3: {e}")
-    print("💡 Asegúrate de que Ollama esté ejecutándose y que tengas el modelo llama3")
+    print(f"⚠️ Llama3 no disponible: {e}")
+    models['llama3'] = None
+
+# Configurar Google Gemini (API)
+try:
+    if Config.GOOGLE_API_KEY:
+        os.environ["GOOGLE_API_KEY"] = Config.GOOGLE_API_KEY
+        models['gemini'] = ChatGoogleGenerativeAI(
+            model="gemini-pro",
+            temperature=Config.DEFAULT_TEMPERATURE
+        )
+        print("✅ Google Gemini configurado correctamente")
+    else:
+        print("⚠️ Google Gemini no disponible: No se encontró GOOGLE_API_KEY")
+        models['gemini'] = None
+except Exception as e:
+    print(f"⚠️ Google Gemini no disponible: {e}")
+    models['gemini'] = None
+
+# Verificar que al menos un modelo esté disponible
+available_models = [k for k, v in models.items() if v is not None]
+if not available_models:
+    print("❌ Error: No hay modelos disponibles")
+    print("💡 Asegúrate de que:")
+    print("   - Ollama esté ejecutándose con llama3 instalado, O")
+    print("   - Tengas GOOGLE_API_KEY configurada en .env")
     exit(1)
+
+print(f"🎯 Modelos disponibles: {', '.join(available_models)}")
+
+# Función para obtener el modelo según la selección
+def get_model(model_name: str):
+    """Obtiene el modelo solicitado o el primero disponible como fallback"""
+    if model_name in models and models[model_name] is not None:
+        return models[model_name]
+    
+    # Fallback al primer modelo disponible
+    for model_key, model_instance in models.items():
+        if model_instance is not None:
+            print(f"⚠️ Usando {model_key} como fallback")
+            return model_instance
+    
+    return None
 
 # Configurar herramientas para el agente
 tools = [DuckDuckGoSearchRun()]
@@ -63,21 +105,22 @@ Thought:{agent_scratchpad}
 """)
 
 # Crear el agente con manejo de errores
-agent_executor: Optional[AgentExecutor] = None
-try:
-    agent = create_react_agent(llm, tools, agent_prompt)
-    agent_executor = AgentExecutor(
-        agent=agent, 
-        tools=tools, 
-        verbose=True,
-        max_iterations=3,
-        handle_parsing_errors=True
-    )
-    print("✅ Agente creado correctamente con Llama3")
-except Exception as e:
-    print(f"❌ Error creando agente: {e}")
-    # Fallback: usar solo chat simple si el agente falla
-    agent_executor = None
+agents = {}
+for model_name, model_instance in models.items():
+    if model_instance is not None:
+        try:
+            agent = create_react_agent(model_instance, tools, agent_prompt)
+            agents[model_name] = AgentExecutor(
+                agent=agent, 
+                tools=tools, 
+                verbose=True,
+                max_iterations=3,
+                handle_parsing_errors=True
+            )
+            print(f"✅ Agente {model_name} creado correctamente")
+        except Exception as e:
+            print(f"⚠️ Error creando agente {model_name}: {e}")
+            agents[model_name] = None
 
 # También configurar un chat simple sin agente para preguntas básicas
 simple_chat_prompt = ChatPromptTemplate.from_messages([
@@ -85,11 +128,15 @@ simple_chat_prompt = ChatPromptTemplate.from_messages([
     ("user", "{pregunta}")
 ])
 
-simple_chain = simple_chat_prompt | llm | StrOutputParser()
+simple_chains = {}
+for model_name, model_instance in models.items():
+    if model_instance is not None:
+        simple_chains[model_name] = simple_chat_prompt | model_instance | StrOutputParser()
+        print(f"✅ Chat simple {model_name} configurado")
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', modelos_disponibles=available_models)
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -97,33 +144,46 @@ def chat():
         data = request.get_json()
         pregunta = data.get('pregunta', '')
         modo = data.get('modo', 'simple')  # 'simple' o 'agente'
+        modelo_seleccionado = data.get('modelo', available_models[0] if available_models else 'llama3')
         
         if not pregunta:
             return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
         
-        if modo == 'agente' and agent_executor is not None:
+        # Obtener el modelo seleccionado
+        modelo = get_model(modelo_seleccionado)
+        if modelo is None:
+            return jsonify({'error': 'No hay modelos disponibles'}), 500
+        
+        if modo == 'agente' and modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
             # Usar el agente para preguntas que puedan requerir búsqueda web
             try:
-                respuesta = agent_executor.invoke({"input": pregunta})
+                respuesta = agents[modelo_seleccionado].invoke({"input": pregunta})
                 return jsonify({
                     'respuesta': respuesta['output'],
-                    'modo': 'agente'
+                    'modo': 'agente',
+                    'modelo_usado': modelo_seleccionado
                 })
             except Exception as e:
-                print(f"Error en agente: {e}")
+                print(f"Error en agente {modelo_seleccionado}: {e}")
                 # Fallback a chat simple si el agente falla
-                respuesta = simple_chain.invoke({"pregunta": pregunta})
-                return jsonify({
-                    'respuesta': f"[Modo Simple] {respuesta}",
-                    'modo': 'simple'
-                })
+                if modelo_seleccionado in simple_chains:
+                    respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
+                    return jsonify({
+                        'respuesta': f"[Modo Simple] {respuesta}",
+                        'modo': 'simple',
+                        'modelo_usado': modelo_seleccionado
+                    })
         else:
-            # Usar chat simple para preguntas básicas
-            respuesta = simple_chain.invoke({"pregunta": pregunta})
-            return jsonify({
-                'respuesta': respuesta,
-                'modo': 'simple'
-            })
+            # Usar chat simple
+            if modelo_seleccionado in simple_chains:
+                respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
+                return jsonify({
+                    'respuesta': respuesta,
+                    'modo': 'simple',
+                    'modelo_usado': modelo_seleccionado
+                })
+            else:
+                return jsonify({'error': f'Modelo {modelo_seleccionado} no disponible'}), 400
             
     except Exception as e:
         return jsonify({'error': f'Error al procesar la pregunta: {str(e)}'}), 500

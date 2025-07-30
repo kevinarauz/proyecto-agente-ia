@@ -17,7 +17,7 @@
                 <i class="fas fa-robot me-3"></i>
                 Agente de IA
             </h1>
-            <p class="lead text-muted">Asistente inteligente con Llama3 y capacidades de búsqueda web</p>
+            <p class="lead text-muted">Asistente inteligente multi-modelo con Gemini y Llama3</p>
         </header>
 
         <div class="row justify-content-center">
@@ -32,14 +32,30 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
+                                <label for="modeloSelect" class="form-label">Modelo de IA:</label>
+                                <select class="form-select" id="modeloSelect">
+                                    {% for modelo in modelos_disponibles %}
+                                    <option value="{{ modelo }}">
+                                        {% if modelo == 'gemini-1.5-flash' %}
+                                            🧠 Google Gemini
+                                        {% elif modelo == 'llama3' %}
+                                            🦙 Llama3 (Local)
+                                        {% else %}
+                                            🤖 {{ modelo|title }}
+                                        {% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
                                 <label for="modoSelect" class="form-label">Modo de Operación:</label>
                                 <select class="form-select" id="modoSelect">
                                     <option value="simple">💬 Chat Simple</option>
                                     <option value="agente">🔍 Agente con Búsqueda Web</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label class="form-label">Acciones Rápidas:</label>
                                 <div>
                                     <button class="btn btn-outline-info btn-sm me-2" onclick="ejemploAgente()">
