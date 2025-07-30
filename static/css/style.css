@@ -1,3 +1,38 @@
+/* Loading Modal Styles */
+#loadingModal .modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+#loadingModal .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+#loadingModal .progress {
+    background-color: rgba(0,123,255,0.1);
+    border-radius: 10px;
+}
+
+#loadingModal .progress-bar {
+    background: linear-gradient(45deg, var(--primary-color), #0056b3);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
+
+#loadingSteps {
+    background: rgba(23,162,184,0.1);
+    border-radius: 8px;
+    padding: 8px;
+    border-left: 3px solid var(--info-color);
+}
+
+#timerValue {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
 /* Cadena de pensamiento */
 .cadena-pensamiento {
     background: rgba(0, 123, 255, 0.05);

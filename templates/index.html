@@ -142,8 +142,22 @@
                     <div class="spinner-border text-primary mb-3" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
-                    <h5>Procesando tu pregunta...</h5>
-                    <p class="text-muted mb-0">El agente está trabajando...</p>
+                    <h5 id="loadingTitle">Procesando tu pregunta...</h5>
+                    <p class="text-muted mb-2" id="loadingDescription">El agente está trabajando...</p>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             id="loadingProgress"
+                             style="width: 0%">
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mt-2" id="loadingTimer">Tiempo transcurrido: <span id="timerValue">0</span>s</small>
+                    <div class="mt-3" id="loadingSteps" style="display: none;">
+                        <small class="text-info">
+                            <i class="fas fa-cog fa-spin me-1"></i>
+                            <span id="currentStep">Iniciando proceso...</span>
+                        </small>
+                    </div>
                 </div>
             </div>
         </div>

@@ -12,6 +12,8 @@ let loadingModal;
 let chatBody;
 let preguntaInput;
 let enviarBtn;
+let loadingTimer;
+let startTime;
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
@@ -48,7 +50,10 @@ async function handleSubmit(e) {
     setLoading(true);
     
     try {
+        updateLoadingProgress(80, 'Procesando resultados...');
         const respuesta = await enviarPreguntaAPI(pregunta, modo, modelo);
+        
+        updateLoadingProgress(95, 'Finalizando respuesta...');
         
         // Extraer pasos intermedios si están disponibles
         let pasos = null;
@@ -63,6 +68,7 @@ async function handleSubmit(e) {
             });
         }
         
+        updateLoadingProgress(100, 'Completado!');
         agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos);
     } catch (error) {
         console.error('Error:', error);
@@ -161,20 +167,58 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
 }
 
 // Controlar estado de carga
-function setLoading(isLoading) {
+function setLoading(isLoading, step = null, progress = 0) {
     if (isLoading) {
         enviarBtn.disabled = true;
         preguntaInput.disabled = true;
-        preguntaInput.blur(); // Quitar el foco del input antes de mostrar el modal
+        preguntaInput.blur();
+        
+        // Reiniciar elementos del modal
+        document.getElementById('loadingTitle').textContent = 'Procesando tu pregunta...';
+        document.getElementById('loadingDescription').textContent = 'El agente está trabajando...';
+        document.getElementById('loadingProgress').style.width = '0%';
+        document.getElementById('timerValue').textContent = '0';
+        document.getElementById('loadingSteps').style.display = 'none';
+        
+        // Iniciar timer
+        startTime = Date.now();
+        loadingTimer = setInterval(updateTimer, 100);
+        
         loadingModal.show();
+        
+        // Simular progreso para mejor UX
+        setTimeout(() => updateLoadingProgress(20, 'Conectando con el agente...'), 500);
+        setTimeout(() => updateLoadingProgress(40, 'Analizando la pregunta...'), 1000);
+        setTimeout(() => updateLoadingProgress(60, 'Ejecutando búsqueda web...'), 2000);
+        
     } else {
+        clearInterval(loadingTimer);
         loadingModal.hide();
         enviarBtn.disabled = false;
         preguntaInput.disabled = false;
-        // Dar un pequeño delay antes de enfocar para evitar conflictos con el modal
         setTimeout(() => {
             preguntaInput.focus();
         }, 100);
+    }
+}
+
+// Actualizar timer
+function updateTimer() {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('timerValue').textContent = elapsed;
+    
+    // Mostrar pasos después de 3 segundos
+    if (elapsed >= 3) {
+        document.getElementById('loadingSteps').style.display = 'block';
+    }
+}
+
+// Actualizar progreso de carga
+function updateLoadingProgress(progress, step) {
+    document.getElementById('loadingProgress').style.width = progress + '%';
+    if (step) {
+        document.getElementById('currentStep').textContent = step;
+        document.getElementById('loadingSteps').style.display = 'block';
     }
 }
 
@@ -273,6 +317,11 @@ async function demoGeneral() {
         if (tipoDemo) {
             setLoading(true);
             
+            // Actualizar progreso específico para demo
+            setTimeout(() => updateLoadingProgress(30, 'Preparando demo...'), 300);
+            setTimeout(() => updateLoadingProgress(50, 'Ejecutando búsqueda especializada...'), 800);
+            setTimeout(() => updateLoadingProgress(70, 'Analizando resultados...'), 1500);
+            
             const response = await fetch('/agente-general', {
                 method: 'POST',
                 headers: {
@@ -290,6 +339,8 @@ async function demoGeneral() {
             
             const data = await response.json();
             
+            updateLoadingProgress(90, 'Formateando respuesta...');
+            
             // Extraer pasos intermedios si están disponibles
             let pasos = null;
             if (data.pasos_intermedios && data.pasos_intermedios.length > 0) {
@@ -303,6 +354,7 @@ async function demoGeneral() {
                 });
             }
             
+            updateLoadingProgress(100, 'Demo completado!');
             agregarMensaje(data.pregunta, 'usuario');
             agregarMensaje(data.respuesta, 'ia', data.modo, data.modelo_usado, pasos);
             
