@@ -102,8 +102,10 @@ si es posible
 
 modelo llama
 
-ollama run gemma3
+ollama pull gemma3
 ollama pull llama3
-ollama run gemma:2b
+ollama pull gemma:2b
 
 ollama list
+
+ollama run llama3
