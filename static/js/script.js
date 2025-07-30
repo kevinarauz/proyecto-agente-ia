@@ -272,3 +272,90 @@ document.addEventListener('DOMContentLoaded', function() {
     preguntaInput.addEventListener('input', validarInput);
     validarInput(); // Validación inicial
 });
+
+// Función para probar consulta de clima
+async function probarClima() {
+    try {
+        // Mostrar modal de selección
+        const { value: opcion } = await Swal.fire({
+            title: '🌤️ Probar Consulta de Clima',
+            text: 'Selecciona cómo quieres probar la consulta del clima:',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#007bff',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '⚡ Búsqueda Rápida',
+            cancelButtonText: '🔍 Modo Agente',
+            showDenyButton: true,
+            denyButtonText: '🎯 Respuesta Directa',
+            denyButtonColor: '#28a745'
+        });
+
+        if (opcion === true) {
+            // Búsqueda rápida
+            document.getElementById('modoSelect').value = 'busqueda_rapida';
+            preguntaInput.value = '¿Cuál es el clima actual en Quito, Ecuador?';
+            
+            // Trigger submit
+            const event = new Event('submit');
+            document.getElementById('chatForm').dispatchEvent(event);
+            
+        } else if (opcion === false) {
+            // Modo agente
+            document.getElementById('modoSelect').value = 'agente';
+            preguntaInput.value = '¿Cuál es el clima actual en Quito, Ecuador?';
+            
+            // Trigger submit
+            const event = new Event('submit');
+            document.getElementById('chatForm').dispatchEvent(event);
+            
+        } else if (opcion === null) {
+            // Respuesta directa (deny button)
+            try {
+                setLoading(true);
+                
+                const response = await fetch('/clima-directo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        pregunta: '¿Cuál es el clima actual en Quito, Ecuador?',
+                        modelo: document.getElementById('modeloSelect').value,
+                        ciudad: 'Quito'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Agregar pregunta y respuesta al chat
+                agregarMensaje('¿Cuál es el clima actual en Quito, Ecuador?', 'usuario');
+                agregarMensaje(data.respuesta, 'ia', data.modo, data.modelo_usado);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Hubo un problema con la consulta directa de clima.',
+                    confirmButtonColor: '#007bff'
+                });
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error en prueba de clima:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un problema al iniciar la prueba de clima.',
+            confirmButtonColor: '#007bff'
+        });
+    }
+}

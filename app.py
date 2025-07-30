@@ -88,20 +88,21 @@ Eres un asistente de IA especializado en proporcionar respuestas precisas y actu
 Herramientas disponibles:
 {tools}
 
-IMPORTANTE: 
-- Usa la búsqueda web SOLO cuando necesites información actual/en tiempo real
-- Para preguntas generales, responde directamente sin buscar
-- Si buscas, usa términos específicos y concisos
-- Proporciona respuestas en español
+REGLAS IMPORTANTES: 
+1. SIEMPRE usa búsqueda web para: clima actual, noticias recientes, precios actuales, eventos deportivos
+2. Para clima, busca términos específicos como: "weather [ciudad] today current" o "clima actual [ciudad]"
+3. NUNCA digas que no tienes acceso a información en tiempo real - ¡SÍ LO TIENES!
+4. Si una búsqueda falla, intenta con términos diferentes
+5. Proporciona respuestas útiles basadas en los resultados obtenidos
 
-Formato:
+Formato OBLIGATORIO:
 Question: la pregunta que debes responder
-Thought: qué debo hacer para responder esta pregunta
-Action: la acción a realizar, debe ser una de [{tool_names}]
-Action Input: el texto específico para buscar
-Observation: el resultado de la búsqueda
-Thought: ahora tengo la información necesaria
-Final Answer: la respuesta final completa en español
+Thought: necesito buscar información actual sobre [tema específico]
+Action: duckduckgo_search
+Action Input: [términos de búsqueda específicos y efectivos]
+Observation: [resultados de la búsqueda]
+Thought: ahora tengo información actual y puedo responder
+Final Answer: [respuesta completa en español basada en los resultados]
 
 Pregunta: {input}
 Thought:{agent_scratchpad}
@@ -259,33 +260,91 @@ def busqueda_rapida() -> Union[Response, Tuple[Response, int]]:
         # Búsqueda directa con DuckDuckGo sin agente complejo
         search_tool = DuckDuckGoSearchRun()
         
+        # Mejorar términos de búsqueda según el tipo de pregunta
+        def mejorar_consulta_busqueda(pregunta_original):
+            pregunta_lower = pregunta_original.lower()
+            if 'clima' in pregunta_lower or 'weather' in pregunta_lower:
+                if 'quito' in pregunta_lower:
+                    return [
+                        "weather Quito Ecuador today current",
+                        "clima actual Quito Ecuador hoy",
+                        "Quito weather forecast today"
+                    ]
+            elif 'precio' in pregunta_lower and 'bitcoin' in pregunta_lower:
+                return [
+                    "Bitcoin price today USD current",
+                    "precio Bitcoin actual USD"
+                ]
+            elif 'noticias' in pregunta_lower:
+                return [
+                    f"{pregunta_original} últimas 24 horas",
+                    f"latest news {pregunta_original}"
+                ]
+            
+            # Búsqueda genérica mejorada
+            return [pregunta_original, f"{pregunta_original} 2025"]
+        
         try:
-            # Hacer búsqueda directa
-            search_results = search_tool.invoke(pregunta)
+            consultas = mejorar_consulta_busqueda(pregunta)
+            search_results = None
+            consulta_exitosa = None
+            
+            # Intentar múltiples consultas hasta obtener resultados útiles
+            for consulta in consultas:
+                try:
+                    print(f"🔍 Buscando: {consulta}")
+                    resultado = search_tool.invoke(consulta)
+                    
+                    # Verificar si el resultado tiene contenido útil
+                    if resultado and len(resultado.strip()) > 50 and not "No se encontraron resultados" in resultado:
+                        search_results = resultado
+                        consulta_exitosa = consulta
+                        print(f"✅ Búsqueda exitosa con: {consulta}")
+                        break
+                except Exception as e:
+                    print(f"⚠️ Error en búsqueda '{consulta}': {e}")
+                    continue
+            
+            if not search_results:
+                return jsonify({
+                    'respuesta': "❌ No pude obtener información actualizada desde internet en este momento. Esto puede deberse a limitaciones temporales del servicio de búsqueda. Te recomiendo:\n\n1. Consultar directamente sitios como Google Weather, AccuWeather o Weather.com\n2. Usar aplicaciones móviles de clima\n3. Intentar la búsqueda más tarde",
+                    'modo': 'busqueda_fallback',
+                    'modelo_usado': modelo_seleccionado,
+                    'fuente': 'Error DuckDuckGo'
+                })
             
             # Usar el modelo para resumir y formatear los resultados
             modelo = get_model(modelo_seleccionado)
             if modelo and modelo_seleccionado in simple_chains:
                 prompt_busqueda = f"""
-                Basándote en los siguientes resultados de búsqueda, proporciona una respuesta clara y concisa en español para la pregunta: "{pregunta}"
+                INSTRUCCIONES: Eres un asistente experto que SIEMPRE debe proporcionar información útil basada en los resultados de búsqueda.
 
-                Resultados de búsqueda:
+                PREGUNTA DEL USUARIO: "{pregunta}"
+                
+                RESULTADOS DE BÚSQUEDA OBTENIDOS:
                 {search_results}
 
-                Respuesta:
+                IMPORTANTE:
+                1. NUNCA digas que no tienes acceso a información en tiempo real
+                2. SIEMPRE analiza y extrae información útil de los resultados
+                3. Si hay datos específicos (temperatura, precios, fechas), inclúyelos
+                4. Estructura la respuesta de forma clara y útil
+                5. Si los resultados no son perfectos, extrae lo que sea útil y admítelo
+                
+                RESPUESTA REQUERIDA (en español):
                 """
                 
                 respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_busqueda})
                 
                 return jsonify({
-                    'respuesta': respuesta,
+                    'respuesta': f"🔍 **Búsqueda realizada con:** {consulta_exitosa}\n\n{respuesta}",
                     'modo': 'busqueda_rapida',
                     'modelo_usado': modelo_seleccionado,
                     'fuente': 'DuckDuckGo'
                 })
             else:
                 return jsonify({
-                    'respuesta': f"Resultados de búsqueda:\n\n{search_results}",
+                    'respuesta': f"**Resultados de búsqueda directa:**\n\n{search_results}",
                     'modo': 'busqueda_directa',
                     'modelo_usado': 'ninguno',
                     'fuente': 'DuckDuckGo'
@@ -296,6 +355,57 @@ def busqueda_rapida() -> Union[Response, Tuple[Response, int]]:
             
     except Exception as e:
         return jsonify({'error': f'Error en búsqueda rápida: {str(e)}'}), 500
+
+@app.route('/clima-directo', methods=['POST'])
+def clima_directo() -> Union[Response, Tuple[Response, int]]:
+    """Endpoint específico para consultas de clima con respuesta directa inteligente"""
+    try:
+        data = request.get_json()
+        pregunta = data.get('pregunta', '')
+        modelo_seleccionado = data.get('modelo', available_models[0] if available_models else 'gemini-1.5-flash')
+        ciudad = data.get('ciudad', 'Quito')
+        
+        if not pregunta:
+            return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
+        
+        # Usar el modelo para generar una respuesta útil sobre clima
+        modelo = get_model(modelo_seleccionado)
+        if modelo and modelo_seleccionado in simple_chains:
+            prompt_clima = f"""
+            El usuario pregunta sobre el clima en {ciudad}. Aunque no puedo acceder a datos meteorológicos en tiempo real desde mi entrenamiento, puedo proporcionar información útil y recomendaciones prácticas.
+
+            Pregunta del usuario: "{pregunta}"
+
+            Proporciona una respuesta útil que incluya:
+            1. Reconocimiento de la limitación para datos en tiempo real
+            2. Información general sobre el clima típico de {ciudad} según la época del año (es julio 2025)
+            3. Recomendaciones específicas para obtener información actual:
+               - Sitios web específicos (weather.com, accuweather.com, clima.com)
+               - Aplicaciones móviles recomendadas
+               - Búsquedas específicas en Google
+            4. Consejos prácticos para el clima típico de la región en esta época
+
+            Sé útil, específico y práctico en tu respuesta.
+            """
+            
+            respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_clima})
+            
+            return jsonify({
+                'respuesta': f"🌤️ **Información sobre clima en {ciudad}**\n\n{respuesta}",
+                'modo': 'clima_directo',
+                'modelo_usado': modelo_seleccionado,
+                'fuente': 'Respuesta inteligente'
+            })
+        else:
+            return jsonify({
+                'respuesta': f"Para obtener el clima actual en {ciudad}, te recomiendo consultar:\n• weather.com\n• accuweather.com\n• Google Weather\n• Apps móviles de clima",
+                'modo': 'clima_basico',
+                'modelo_usado': 'ninguno',
+                'fuente': 'Recomendaciones estáticas'
+            })
+            
+    except Exception as e:
+        return jsonify({'error': f'Error en consulta de clima: {str(e)}'}), 500
 
 if __name__ == '__main__':
     print("🤖 Iniciando aplicación de IA con Agentes...")
