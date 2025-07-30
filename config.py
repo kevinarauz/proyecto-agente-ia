@@ -11,8 +11,9 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'tu-clave-secreta-super-segura'
     DEBUG = True
     
-    # Google Gemini API
-    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+    # Ollama/Llama3 settings (no requiere API key)
+    OLLAMA_MODEL = "llama3"
+    OLLAMA_BASE_URL = "http://localhost:11434"
     
     # LangChain settings
     LANGCHAIN_VERBOSE = True
@@ -24,11 +25,23 @@ class Config:
     
     @staticmethod
     def validate_config():
-        """Validar que todas las configuraciones necesarias estén presentes"""
-        if not Config.GOOGLE_API_KEY:
-            raise ValueError("GOOGLE_API_KEY no está configurada en el archivo .env")
-        
-        print("✅ Configuración validada correctamente")
-        print(f"🔑 API Key configurada: {Config.GOOGLE_API_KEY[:10]}...")
-        
-        return True
+        """Validar que Ollama esté disponible"""
+        import requests
+        try:
+            response = requests.get(f"{Config.OLLAMA_BASE_URL}/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                llama_available = any('llama3' in model.get('name', '') for model in models)
+                if llama_available:
+                    print("✅ Configuración validada correctamente")
+                    print(f"🦙 Llama3 disponible en Ollama")
+                    return True
+                else:
+                    raise ValueError("Modelo llama3 no encontrado en Ollama")
+            else:
+                raise ValueError("Ollama no responde correctamente")
+        except Exception as e:
+            print(f"❌ Error verificando Ollama: {e}")
+            print("� Asegúrate de que Ollama esté ejecutándose y tengas llama3 instalado")
+            print("🔧 Ejecuta: ollama pull llama3")
+            return False

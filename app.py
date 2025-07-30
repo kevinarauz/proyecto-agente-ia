@@ -1,12 +1,14 @@
 import os
 import json
+from typing import Optional
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatOllama
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain import hub
 from config import Config
 
 # Cargar variables de entorno
@@ -15,63 +17,71 @@ load_dotenv()
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Validar configuración antes de continuar
-try:
-    Config.validate_config()
-except ValueError as e:
-    print(f"❌ Error de configuración: {e}")
-    print("💡 Asegúrate de que el archivo .env contenga GOOGLE_API_KEY")
+print("🤖 Configurando modelo Llama3 con Ollama...")
+
+# Validar que Ollama esté disponible
+if not Config.validate_config():
+    print("❌ Error: Ollama no está disponible")
     exit(1)
 
-# Configurar el modelo de IA
-if Config.GOOGLE_API_KEY:
-    os.environ["GOOGLE_API_KEY"] = Config.GOOGLE_API_KEY
-
-llm = ChatGoogleGenerativeAI(
-    model="gemini-pro", 
-    temperature=Config.DEFAULT_TEMPERATURE
-)
+# Configurar el modelo de IA local con Ollama
+try:
+    llm = ChatOllama(
+        model="llama3",
+        temperature=Config.DEFAULT_TEMPERATURE
+    )
+    print("✅ Modelo Llama3 configurado correctamente")
+except Exception as e:
+    print(f"❌ Error configurando Llama3: {e}")
+    print("💡 Asegúrate de que Ollama esté ejecutándose y que tengas el modelo llama3")
+    exit(1)
 
 # Configurar herramientas para el agente
 tools = [DuckDuckGoSearchRun()]
 
-# Prompt personalizado para el agente
+# Usar prompt optimizado para Llama3
 agent_prompt = PromptTemplate.from_template("""
-Eres un asistente inteligente que puede ayudar con información actual y realizar búsquedas web cuando sea necesario.
+Answer the following questions as best you can. You have access to the following tools:
 
-Tienes acceso a las siguientes herramientas:
 {tools}
 
-Usa el siguiente formato:
+Use the following format:
 
-Pregunta: la pregunta de entrada que debes responder
-Pensamiento: siempre debes pensar sobre qué hacer
-Acción: la acción a tomar, debe ser una de [{tool_names}]
-Entrada de Acción: la entrada a la acción
-Observación: el resultado de la acción
-... (este Pensamiento/Acción/Entrada de Acción/Observación puede repetirse N veces)
-Pensamiento: ahora sé la respuesta final
-Respuesta Final: la respuesta final a la pregunta de entrada original
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
 
-Comienza!
+Begin!
 
-Pregunta: {input}
-Pensamiento: {agent_scratchpad}
+Question: {input}
+Thought:{agent_scratchpad}
 """)
 
-# Crear el agente
-agent = create_react_agent(llm, tools, agent_prompt)
-agent_executor = AgentExecutor(
-    agent=agent, 
-    tools=tools, 
-    verbose=True,
-    max_iterations=3,
-    handle_parsing_errors=True
-)
+# Crear el agente con manejo de errores
+agent_executor: Optional[AgentExecutor] = None
+try:
+    agent = create_react_agent(llm, tools, agent_prompt)
+    agent_executor = AgentExecutor(
+        agent=agent, 
+        tools=tools, 
+        verbose=True,
+        max_iterations=3,
+        handle_parsing_errors=True
+    )
+    print("✅ Agente creado correctamente con Llama3")
+except Exception as e:
+    print(f"❌ Error creando agente: {e}")
+    # Fallback: usar solo chat simple si el agente falla
+    agent_executor = None
 
 # También configurar un chat simple sin agente para preguntas básicas
 simple_chat_prompt = ChatPromptTemplate.from_messages([
-    ("system", "Eres un asistente útil y amigable. Responde de manera clara y concisa."),
+    ("system", "Eres un asistente útil y amigable. Responde de manera clara y concisa en español. Siempre mantén un tono profesional pero cercano."),
     ("user", "{pregunta}")
 ])
 
@@ -91,13 +101,22 @@ def chat():
         if not pregunta:
             return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
         
-        if modo == 'agente':
+        if modo == 'agente' and agent_executor is not None:
             # Usar el agente para preguntas que puedan requerir búsqueda web
-            respuesta = agent_executor.invoke({"input": pregunta})
-            return jsonify({
-                'respuesta': respuesta['output'],
-                'modo': 'agente'
-            })
+            try:
+                respuesta = agent_executor.invoke({"input": pregunta})
+                return jsonify({
+                    'respuesta': respuesta['output'],
+                    'modo': 'agente'
+                })
+            except Exception as e:
+                print(f"Error en agente: {e}")
+                # Fallback a chat simple si el agente falla
+                respuesta = simple_chain.invoke({"pregunta": pregunta})
+                return jsonify({
+                    'respuesta': f"[Modo Simple] {respuesta}",
+                    'modo': 'simple'
+                })
         else:
             # Usar chat simple para preguntas básicas
             respuesta = simple_chain.invoke({"pregunta": pregunta})
@@ -122,6 +141,16 @@ def ejemplo_agente():
         
         pregunta_ejemplo = ejemplos[0]  # Tomar el primer ejemplo
         
+        # Verificar que el agente esté disponible
+        if agent_executor is None:
+            # Fallback: usar chat simple si el agente no está disponible
+            respuesta_simple = simple_chain.invoke({"pregunta": pregunta_ejemplo})
+            return jsonify({
+                'pregunta': pregunta_ejemplo,
+                'respuesta': f"[Modo Simple - Agente no disponible] {respuesta_simple}",
+                'modo': 'simple'
+            })
+        
         respuesta = agent_executor.invoke({"input": pregunta_ejemplo})
         
         return jsonify({
@@ -135,7 +164,8 @@ def ejemplo_agente():
 
 if __name__ == '__main__':
     print("🤖 Iniciando aplicación de IA con Agentes...")
-    print("📊 Modelo: Google Gemini Pro")
+    print("📊 Modelo: Llama3 (Ollama)")
     print("🔍 Herramientas: Búsqueda web con DuckDuckGo")
     print("🌐 Servidor: http://127.0.0.1:5000")
+    print("🦙 Usando modelo local - sin dependencia de APIs externas")
     app.run(debug=True, host='127.0.0.1', port=5000)
