@@ -41,17 +41,17 @@ except Exception as e:
 try:
     if Config.GOOGLE_API_KEY:
         os.environ["GOOGLE_API_KEY"] = Config.GOOGLE_API_KEY
-        models['gemini'] = ChatGoogleGenerativeAI(
-            model="gemini-pro",
+        models['gemini-1.5-flash'] = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
             temperature=Config.DEFAULT_TEMPERATURE
         )
-        print("✅ Google Gemini configurado correctamente")
+        print("✅ Google Gemini 1.5 Flash configurado correctamente")
     else:
         print("⚠️ Google Gemini no disponible: No se encontró GOOGLE_API_KEY")
-        models['gemini'] = None
+        models['gemini-1.5-flash'] = None
 except Exception as e:
     print(f"⚠️ Google Gemini no disponible: {e}")
-    models['gemini'] = None
+    models['gemini-1.5-flash'] = None
 
 # Verificar que al menos un modelo esté disponible
 available_models = [k for k, v in models.items() if v is not None]
@@ -201,31 +201,37 @@ def ejemplo_agente():
         
         pregunta_ejemplo = ejemplos[0]  # Tomar el primer ejemplo
         
-        # Verificar que el agente esté disponible
-        if agent_executor is None:
+        # Usar el primer modelo y agente disponible
+        modelo_disponible = available_models[0] if available_models else None
+        
+        if modelo_disponible and modelo_disponible in agents and agents[modelo_disponible] is not None:
+            # Usar el agente para la demo
+            respuesta = agents[modelo_disponible].invoke({"input": pregunta_ejemplo})
+            return jsonify({
+                'pregunta': pregunta_ejemplo,
+                'respuesta': respuesta['output'],
+                'modo': 'agente',
+                'modelo_usado': modelo_disponible
+            })
+        elif modelo_disponible and modelo_disponible in simple_chains:
             # Fallback: usar chat simple si el agente no está disponible
-            respuesta_simple = simple_chain.invoke({"pregunta": pregunta_ejemplo})
+            respuesta_simple = simple_chains[modelo_disponible].invoke({"pregunta": pregunta_ejemplo})
             return jsonify({
                 'pregunta': pregunta_ejemplo,
                 'respuesta': f"[Modo Simple - Agente no disponible] {respuesta_simple}",
-                'modo': 'simple'
+                'modo': 'simple',
+                'modelo_usado': modelo_disponible
             })
-        
-        respuesta = agent_executor.invoke({"input": pregunta_ejemplo})
-        
-        return jsonify({
-            'pregunta': pregunta_ejemplo,
-            'respuesta': respuesta['output'],
-            'modo': 'agente'
-        })
+        else:
+            return jsonify({'error': 'No hay modelos disponibles para la demo'}), 500
         
     except Exception as e:
         return jsonify({'error': f'Error en ejemplo de agente: {str(e)}'}), 500
 
 if __name__ == '__main__':
     print("🤖 Iniciando aplicación de IA con Agentes...")
-    print("📊 Modelo: Llama3 (Ollama)")
+    print(f"🧠 Modelos disponibles: {', '.join(available_models)}")
     print("🔍 Herramientas: Búsqueda web con DuckDuckGo")
     print("🌐 Servidor: http://127.0.0.1:5000")
-    print("🦙 Usando modelo local - sin dependencia de APIs externas")
+    print("🚀 Aplicación multi-modelo lista!")
     app.run(debug=True, host='127.0.0.1', port=5000)
