@@ -27,9 +27,6 @@ from config import Config
 # Cargar variables de entorno
 load_dotenv()
 
-# Cargar variables de entorno
-load_dotenv()
-
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -341,119 +338,30 @@ def index() -> str:
 @app.route('/chat', methods=['POST'])
 def chat() -> Union[Response, Tuple[Response, int]]:
     try:
+        print("🔍 DEBUG: Iniciando función chat()")
         data = request.get_json()
+        print(f"🔍 DEBUG: Datos recibidos: {data}")
+        
         pregunta = data.get('pregunta', '')
         modo = data.get('modo', 'simple')  # 'simple' o 'agente'
         modelo_seleccionado = data.get('modelo', available_models[0] if available_models else 'llama3')
         
+        print(f"🔍 DEBUG: pregunta='{pregunta}', modo='{modo}', modelo='{modelo_seleccionado}'")
+        
         if not pregunta:
             return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
         
-        # Obtener el modelo seleccionado
-        modelo = get_model(modelo_seleccionado)
-        if modelo is None:
-            return jsonify({'error': 'No hay modelos disponibles'}), 500
+        # SIMPLIFICACIÓN TEMPORAL: Solo respuesta básica para probar
+        return jsonify({
+            'respuesta': f"Prueba exitosa! Recibí: '{pregunta}' con modelo {modelo_seleccionado}",
+            'modo': modo,
+            'modelo_usado': modelo_seleccionado
+        })
         
-        if modo == 'agente' and modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
-            # Usar el agente para preguntas que puedan requerir búsqueda web
-            try:
-                tiempo_inicio = time.time()
-                print(f"🤖 Iniciando agente {modelo_seleccionado} para: {pregunta[:50]}...")
-                
-                # Ejecutar el agente
-                respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
-                tiempo_fin = time.time()
-                duracion = round(tiempo_fin - tiempo_inicio, 2)
-                
-                print(f"✅ Agente completado en {duracion}s")
-                
-                # Extraer pasos intermedios si están disponibles
-                pasos_intermedios = []
-                busquedas_count = 0
-                pensamientos = []
-                
-                if 'intermediate_steps' in respuesta_completa:
-                    print(f"📊 Procesando {len(respuesta_completa['intermediate_steps'])} pasos intermedios...")
-                    
-                    for i, paso in enumerate(respuesta_completa['intermediate_steps']):
-                        if len(paso) >= 2:
-                            accion = paso[0]
-                            observacion = paso[1]
-                            
-                            # Contar búsquedas
-                            if hasattr(accion, 'tool') and accion.tool in ['web_search', 'duckduckgo_search']:
-                                busquedas_count += 1
-                                pensamientos.append(f"🔍 Realizando búsqueda: '{accion.tool_input}'")
-                            
-                            # Agregar información del paso
-                            paso_info = {
-                                'step': i + 1,
-                                'action': accion.tool if hasattr(accion, 'tool') else str(accion),
-                                'action_input': accion.tool_input if hasattr(accion, 'tool_input') else str(accion),
-                                'observation': observacion[:500] + '...' if len(str(observacion)) > 500 else str(observacion),
-                                'thought': f"Ejecutando {accion.tool}" if hasattr(accion, 'tool') else "Procesando información"
-                            }
-                            pasos_intermedios.append(paso_info)
-                            
-                            # Agregar pensamiento formateado
-                            if hasattr(accion, 'tool'):
-                                pensamientos.append(f"💭 Paso {i+1}: Usando herramienta '{accion.tool}' con entrada: '{accion.tool_input}'")
-                                pensamientos.append(f"📋 Resultado: {observacion[:200]}..." if len(str(observacion)) > 200 else f"📋 Resultado: {observacion}")
-                else:
-                    print("ℹ️ No se encontraron pasos intermedios")
-                    # Para consultas simples, agregar un pensamiento básico
-                    pensamientos.append("💭 Procesando consulta directamente sin necesidad de búsquedas web")
-                
-                return jsonify({
-                    'respuesta': respuesta_completa['output'],
-                    'modo': 'agente',
-                    'modelo_usado': modelo_seleccionado,
-                    'pasos_intermedios': pasos_intermedios,
-                    'pensamientos': pensamientos,
-                    'metadata': {
-                        'duracion': duracion,
-                        'iteraciones': len(pasos_intermedios),
-                        'busquedas': busquedas_count,
-                        'timestamp': time.time(),
-                        'timestamp_inicio': tiempo_inicio,
-                        'timestamp_fin': tiempo_fin
-                    }
-                })
-            except Exception as e:
-                error_msg = str(e)
-                print(f"Error en agente {modelo_seleccionado}: {error_msg}")
-                
-                # Manejo específico para diferentes tipos de errores
-                if "iteration limit" in error_msg.lower() or "time limit" in error_msg.lower():
-                    fallback_msg = f"⚠️ La búsqueda tomó más tiempo del esperado. Intentando respuesta rápida...\n\n"
-                elif "parsing" in error_msg.lower():
-                    fallback_msg = f"⚠️ Hubo un problema procesando la búsqueda. Usando respuesta directa...\n\n"
-                else:
-                    fallback_msg = f"⚠️ Error en búsqueda web. Usando modo simple...\n\n"
-                
-                # Fallback a chat simple si el agente falla
-                if modelo_seleccionado in simple_chains:
-                    respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
-                    return jsonify({
-                        'respuesta': f"{fallback_msg}{respuesta}",
-                        'modo': 'simple_fallback',
-                        'modelo_usado': modelo_seleccionado
-                    })
-                else:
-                    return jsonify({'error': f'Modelo {modelo_seleccionado} no disponible para fallback'}), 500
-        else:
-            # Usar chat simple
-            if modelo_seleccionado in simple_chains:
-                respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
-                return jsonify({
-                    'respuesta': respuesta,
-                    'modo': 'simple',
-                    'modelo_usado': modelo_seleccionado
-                })
-            else:
-                return jsonify({'error': f'Modelo {modelo_seleccionado} no disponible'}), 400
-            
     except Exception as e:
+        print(f"❌ DEBUG: Error en función chat: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error al procesar la pregunta: {str(e)}'}), 500
 
 @app.route('/ejemplo-agente', methods=['POST'])
