@@ -1,7 +1,7 @@
 import os
 import json
-from typing import Optional
-from flask import Flask, render_template, request, jsonify
+from typing import Optional, Union, Tuple
+from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 from langchain_community.chat_models import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -65,7 +65,7 @@ if not available_models:
 print(f"🎯 Modelos disponibles: {', '.join(available_models)}")
 
 # Función para obtener el modelo según la selección
-def get_model(model_name: str):
+def get_model(model_name: str) -> Optional[Union[ChatOllama, ChatGoogleGenerativeAI]]:
     """Obtiene el modelo solicitado o el primero disponible como fallback"""
     if model_name in models and models[model_name] is not None:
         return models[model_name]
@@ -135,11 +135,11 @@ for model_name, model_instance in models.items():
         print(f"✅ Chat simple {model_name} configurado")
 
 @app.route('/')
-def index():
+def index() -> str:
     return render_template('index.html', modelos_disponibles=available_models)
 
 @app.route('/chat', methods=['POST'])
-def chat():
+def chat() -> Union[Response, Tuple[Response, int]]:
     try:
         data = request.get_json()
         pregunta = data.get('pregunta', '')
@@ -173,6 +173,8 @@ def chat():
                         'modo': 'simple',
                         'modelo_usado': modelo_seleccionado
                     })
+                else:
+                    return jsonify({'error': f'Modelo {modelo_seleccionado} no disponible para fallback'}), 500
         else:
             # Usar chat simple
             if modelo_seleccionado in simple_chains:
@@ -189,7 +191,7 @@ def chat():
         return jsonify({'error': f'Error al procesar la pregunta: {str(e)}'}), 500
 
 @app.route('/ejemplo-agente', methods=['POST'])
-def ejemplo_agente():
+def ejemplo_agente() -> Union[Response, Tuple[Response, int]]:
     """Endpoint específico para demostrar capacidades del agente"""
     try:
         ejemplos = [
