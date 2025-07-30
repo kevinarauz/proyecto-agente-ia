@@ -1,14 +1,16 @@
 # 🤖 Agente de IA - Aplicación Web Inteligente
 
-¡Aplicación web completa con agentes de IA que pueden realizar búsquedas web y responder preguntas! Esta aplicación utiliza Python, Flask, LangChain y Google Gemini para crear un asistente inteligente con capacidades avanzadas.
+¡Aplicación web completa con agentes de IA que pueden realizar búsquedas web y responder preguntas! Esta aplicación utiliza Python, Flask, LangChain con **soporte multi-modelo** (Google Gemini y Llama3) para crear un asistente inteligente con capacidades avanzadas.
 
 ## ✨ Características Principales
 
-- **Chat Simple**: Respuestas directas usando Google Gemini
-- **Agente con Búsqueda Web**: Puede buscar información actual en internet
-- **Interfaz Moderna**: Diseño responsive con Bootstrap y animaciones
-- **Dos Modos de Operación**: Simple y Agente con herramientas
-- **Demo Interactivo**: Ejemplos predefinidos para probar las capacidades
+- **🧠 Selección Multi-Modelo**: Elige entre Google Gemini y Llama3 (local)
+- **💬 Chat Simple**: Respuestas directas con el modelo seleccionado
+- **🔍 Agente con Búsqueda Web**: Puede buscar información actual en internet
+- **🎨 Interfaz Moderna**: Diseño responsive con Bootstrap y animaciones
+- **⚙️ Dos Modos de Operación**: Simple y Agente con herramientas
+- **🚀 Demo Interactivo**: Ejemplos predefinidos para probar las capacidades
+- **🏷️ Indicadores Visuales**: Badges que muestran qué modelo y modo fue usado
 
 ## 🚀 Ejecución Rápida
 
@@ -20,7 +22,7 @@ python app.py
 
 Luego abre tu navegador en: `http://127.0.0.1:5000`
 
-> **⚠️ Nota:** Si experimentas errores, consulta el archivo `SOLUCION_ERRORES.md` que contiene soluciones a problemas comunes como errores 500, problemas de dependencias y configuración del agente.
+> **⚠️ Nota:** Si experimentas errores, consulta la sección de **Troubleshooting** al final de este documento para soluciones a problemas comunes como errores 500, problemas de dependencias y configuración del agente.
 
 ## 🎯 Concepto del Proyecto
 
@@ -28,11 +30,11 @@ Esta aplicación demuestra el poder de los **Agentes de IA**: sistemas que no so
 
 **Flujo de trabajo principal:**
 
-1.  **Frontend (UI/UX):** El usuario introduce datos (texto, preguntas, etc.) en una interfaz web construida con HTML, CSS y JavaScript.
-2.  **Backend (Flask):** Un servidor Flask recibe la solicitud del usuario.
-3.  **Orquestador (LangChain):** Flask pasa la solicitud a LangChain, que la formatea y la envía al modelo de IA apropiado (Google Gemini).
-4.  **Motor de IA (Google Gemini):** El modelo procesa la solicitud y genera una respuesta.
-5.  **Respuesta al Usuario:** LangChain devuelve la respuesta a Flask, que la renderiza en la plantilla HTML y la envía de vuelta al navegador del usuario.
+1.  **Frontend (UI/UX):** El usuario introduce datos y selecciona el modelo preferido (Gemini o Llama3) en una interfaz web construida con HTML, CSS y JavaScript.
+2.  **Backend (Flask):** Un servidor Flask recibe la solicitud del usuario incluyendo el modelo seleccionado.
+3.  **Orquestador (LangChain):** Flask pasa la solicitud a LangChain, que la formatea y la envía al modelo de IA apropiado (Google Gemini o Llama3 local).
+4.  **Motor de IA:** El modelo seleccionado procesa la solicitud y genera una respuesta.
+5.  **Respuesta al Usuario:** LangChain devuelve la respuesta a Flask, que la renderiza en la plantilla HTML mostrando el modelo usado y la envía de vuelta al navegador del usuario.
 
 ---
 
@@ -43,7 +45,8 @@ Esta aplicación demuestra el poder de los **Agentes de IA**: sistemas que no so
 | **Backend** | ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) | Lenguaje de programación principal para la lógica del servidor. |
 | | ![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white) | Micro-framework web para crear las rutas y manejar las solicitudes HTTP. |
 | **Inteligencia Artificial**| ![LangChain](https://img.shields.io/badge/LangChain-000000?style=for-the-badge) | Framework para simplificar la interacción con los modelos de lenguaje. |
-| | ![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B7?style=for-the-badge&logo=google-gemini&logoColor=white) | El modelo de lenguaje grande (LLM) que proporciona la "inteligencia". |
+| | ![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B7?style=for-the-badge&logo=google-gemini&logoColor=white) | Modelo de lenguaje en la nube con capacidades avanzadas (API). |
+| | ![Llama3](https://img.shields.io/badge/Llama3-FF6B35?style=for-the-badge&logo=meta&logoColor=white) | Modelo de lenguaje local ejecutado vía Ollama (sin dependencia de internet). |
 | **Frontend** | ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white) | Estructura de la página web. |
 | | ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white) | Estilos y diseño visual. |
 | | ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black) | Interactividad en el lado del cliente. |
@@ -331,6 +334,9 @@ ollama pull llama3
 
 # Descargar la versión más liviana (2B) de Gemma
 ollama pull gemma:2b
+
+# Descargar Phi-3
+ollama pull phi3
 ```
 
 #### 3. Ejecutar un Modelo (`run`)
@@ -345,14 +351,16 @@ ollama run gemma:2b
 ```
 Puedes usar `Ctrl+D` o escribir `/bye` para salir de la sesión de chat.
 
-### d) Eligiendo un Modelo Local
-No todos los modelos son iguales. Aquí tienes una comparación rápida de los modelos más populares para ayudarte a decidir cuál usar.
+### d) Eligiendo un Modelo Local: Comparativa Completa
+No todos los modelos son iguales. Aquí tienes una comparación detallada para ayudarte a decidir cuál usar según tus necesidades.
 
-| Modelo | Parámetros | Tamaño (Peso) | Uso Ideal | Comando `pull` |
-| :--- | :--- | :--- | :--- | :--- |
-| **Llama 3** | 8B | ~4.7 GB | **El mejor todoterreno.** Excelente razonamiento, bueno para código y seguir instrucciones complejas. Ideal para empezar. | `ollama pull llama3` |
-| **Gemma** | 2B | ~1.7 GB | **El más liviano.** Perfecto para máquinas con pocos recursos (4-8 GB RAM). Bueno para tareas creativas y chat general. | `ollama pull gemma:2b` |
-| **Phi-3** | 3.8B | ~2.3 GB | **Potente y pequeño.** Muy bueno en lógica y código, a menudo supera a modelos más grandes en estas áreas. Gran alternativa a Llama 3. | `ollama pull phi3` |
+| Modelo | Parámetros | Tamaño (Peso) | Fortalezas Clave | Uso Ideal | Comando `pull` |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Llama 3** | 8B | ~4.7 GB | **El mejor todoterreno.** Excelente razonamiento general, bueno para seguir instrucciones complejas. | La opción más segura y recomendada para empezar. Ideal para la mayoría de casos de uso. | `ollama pull llama3` |
+| **DeepSeek-Coder** | 7B | ~4.1 GB | **Especialista en Código.** Superior en tareas de programación, autocompletado y lógica de código. | Desarrollo de software, debugging, explicación de código, generación de scripts. | `ollama pull deepseek-coder` |
+| **Mistral** | 7B | ~4.1 GB | **El más eficiente.** Rendimiento increíble para su tamaño, a menudo compite con modelos más grandes. | Aplicaciones que requieren respuestas rápidas y eficientes. Excelente para multilingüe. | `ollama pull mistral` |
+| **Phi-3** | 3.8B | ~2.3 GB | **Potente y pequeño.** Muy bueno en lógica y código para su tamaño. | Ideal si Llama 3 es pesado para tu sistema pero quieres buena calidad. | `ollama pull phi3` |
+| **Gemma** | 2B | ~1.7 GB | **El más liviano.** Perfecto para máquinas con pocos recursos (4-8 GB RAM). | Sistemas con recursos limitados, tareas creativas y chat general. | `ollama pull gemma:2b` |
 
 **B** = Billones (Miles de millones) de parámetros. Más parámetros generalmente significan mayor capacidad, pero también mayores requisitos de hardware.
 
@@ -473,5 +481,166 @@ print(respuesta)
 ```
 
 Al ejecutar este código con `verbose=True`, verás en la terminal todo el proceso de "pensamiento" del agente: cómo decide usar la herramienta de búsqueda, qué busca, qué encuentra y cómo formula la respuesta final. Esto es la automatización de tareas en acción.
+
+---
+
+## 11. Troubleshooting - Solución de Problemas Comunes
+
+### 🚨 Problemas con Google Gemini
+
+#### Error: "404 models/gemini-pro is not found"
+**Causa:** El modelo `gemini-pro` ha sido discontinuado.
+**Solución:** La aplicación ya está configurada para usar `gemini-1.5-flash`. Si ves este error:
+```python
+# Cambia de:
+model="gemini-pro"
+# A:
+model="gemini-1.5-flash"
+```
+
+#### Error: "Invalid API Key" o problemas de autenticación
+**Solución:**
+1. Verifica que tu clave API esté correcta en el archivo `.env`
+2. Asegúrate de que la API de Gemini esté habilitada en Google Cloud Console
+3. Comprueba que no hay espacios extra en la clave API
+
+### 🦙 Problemas con Ollama/Llama3
+
+#### Error: "Connection refused" o "Ollama not available"
+**Solución:**
+1. **Verificar que Ollama esté ejecutándose:**
+   ```bash
+   # Verificar estado
+   ollama list
+   ```
+2. **Reiniciar Ollama:**
+   - En Windows: Busca "Ollama" en el menú inicio y ábrelo
+   - O reinstala desde [ollama.com](https://ollama.com/)
+
+3. **Verificar que el modelo esté descargado:**
+   ```bash
+   # Descargar Llama3 si no está disponible
+   ollama pull llama3
+   ```
+
+#### Error: "Model not found" 
+**Solución:**
+```bash
+# Listar modelos disponibles
+ollama list
+
+# Si llama3 no aparece, descargarlo
+ollama pull llama3
+
+# Verificar que funciona
+ollama run llama3
+```
+
+### 🌐 Problemas de Conexión Web
+
+#### Error: "DuckDuckGoSearchRun failed"
+**Causa:** Problemas de conectividad o límites de tasa de DuckDuckGo.
+**Solución:**
+1. Verifica tu conexión a internet
+2. Espera unos minutos y vuelve a intentar
+3. El agente automáticamente hará fallback al modo simple si falla
+
+#### Error: "ERR_CONNECTION_RESET"
+**Solución:**
+1. Reinicia la aplicación Flask
+2. Verifica que no hay otros procesos usando el puerto 5000:
+   ```bash
+   netstat -ano | findstr :5000
+   ```
+
+### 📦 Problemas de Dependencias
+
+#### Error: "ModuleNotFoundError"
+**Solución:**
+```bash
+# Asegúrate de que el entorno virtual esté activo
+.\venv\Scripts\activate
+
+# Reinstala las dependencias
+pip install -r requirements.txt
+
+# Si persiste, instala manualmente:
+pip install flask langchain langchain-google-genai langchain-community python-dotenv duckduckgo-search
+```
+
+#### Error: "LangChainDeprecationWarning"
+**Nota:** Las advertencias de deprecación no afectan el funcionamiento. Para eliminarlas, puedes actualizar a `langchain-ollama`:
+```bash
+pip install -U langchain-ollama
+```
+
+### 🔧 Problemas Generales de la Aplicación
+
+#### La aplicación no inicia
+**Solución paso a paso:**
+1. **Verificar Python:**
+   ```bash
+   python --version  # Debe ser 3.8+
+   ```
+
+2. **Verificar dependencias:**
+   ```bash
+   pip list | findstr flask
+   pip list | findstr langchain
+   ```
+
+3. **Ejecutar en modo debug:**
+   ```bash
+   python app.py
+   # Revisar los mensajes de error en la terminal
+   ```
+
+#### Error 500 en la interfaz web
+**Causa común:** Ningún modelo disponible.
+**Solución:**
+1. Verifica que al menos un modelo esté funcionando:
+   - Para Gemini: Revisa la clave API en `.env`
+   - Para Llama3: Asegúrate de que Ollama esté ejecutándose
+
+2. Revisa la terminal donde ejecutas `python app.py` para ver mensajes de error específicos
+
+#### El selector de modelos no aparece
+**Causa:** Error en el frontend o no hay modelos disponibles.
+**Solución:**
+1. Refresca la página (Ctrl+F5)
+2. Verifica en la consola del navegador (F12) si hay errores JavaScript
+3. Asegúrate de que al menos un modelo esté configurado correctamente
+
+### 💡 Consejos de Rendimiento
+
+#### Llama3 es muy lento
+**Soluciones:**
+1. **Usar un modelo más pequeño:**
+   ```bash
+   ollama pull gemma:2b  # Solo 1.7GB
+   ollama pull phi3      # Solo 2.3GB
+   ```
+
+2. **Verificar recursos del sistema:**
+   - Mínimo recomendado: 8GB RAM
+   - Para modelos grandes: 16GB+ RAM
+
+#### Timeouts en las respuestas
+**Solución:**
+1. Aumenta el timeout en `app.py` si es necesario
+2. Usa modelos más pequeños para respuestas más rápidas
+3. Para el modo agente, limita las iteraciones máximas
+
+### 🆘 Obtener Ayuda Adicional
+
+Si ninguna de estas soluciones funciona:
+
+1. **Revisa los logs completos:** Ejecuta `python app.py` y copia todo el output
+2. **Verifica tu configuración:** Asegúrate de que todos los archivos estén en su lugar
+3. **Prueba con un entorno limpio:** Crea un nuevo entorno virtual y reinstala todo
+4. **Consulta la documentación oficial:**
+   - [LangChain Documentation](https://python.langchain.com/)
+   - [Ollama Documentation](https://github.com/ollama/ollama)
+   - [Google Gemini API Docs](https://ai.google.dev/docs)
 
 ---
