@@ -40,11 +40,8 @@ models = {}
 
 # Configurar Llama3 (local)
 try:
-    models['llama3'] = ChatOllama(
-        model="llama3",
-        base_url=Config.OLLAMA_BASE_URL,
-        # La temperatura se configurará en las invocaciones específicas
-    )
+    # ChatOllama requiere el parámetro model
+    models['llama3'] = ChatOllama(model="llama3")
     print("✅ Llama3 configurado correctamente")
 except Exception as e:
     print(f"⚠️ Llama3 no disponible: {e}")
@@ -583,7 +580,7 @@ def busqueda_rapida() -> Union[Response, Tuple[Response, int]]:
                             break
                         else:
                             print(f"⚠️ Resultado irrelevante con: {consulta}")
-                            
+                
                 except Exception as e:
                     print(f"⚠️ Error en búsqueda '{consulta}': {e}")
                     continue
