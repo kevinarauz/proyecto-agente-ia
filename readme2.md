@@ -20,8 +20,6 @@ python app.py
 
 Luego abre tu navegador en: `http://127.0.0.1:5000`
 
-> **⚠️ Nota:** Si experimentas errores, consulta el archivo `SOLUCION_ERRORES.md` que contiene soluciones a problemas comunes como errores 500, problemas de dependencias y configuración del agente.
-
 ## 🎯 Concepto del Proyecto
 
 Esta aplicación demuestra el poder de los **Agentes de IA**: sistemas que no solo responden preguntas, sino que pueden usar herramientas para realizar acciones y obtener información actualizada.
@@ -90,7 +88,7 @@ La base de todo el layout y los componentes es **Bootstrap 5**. Se debe prioriza
 
 ## 4. Estructura del Proyecto
 
-Para mantener el código organizado y escalable, se recomienda la siguiente estructura de carpetas, que separa la lógica (Python), las plantillas (HTML) y los archivos estáticos (CSS, JS).
+Para mantener el código organizado y escalable, se recomienda la siguiente estructura de carpetas.
 
 ```
 /mi_proyecto_ia/
@@ -172,7 +170,7 @@ Existen dos formas principales de comunicarse con la API:
 Útil para pruebas rápidas desde la terminal. Esto te permite entender la estructura fundamental de una petición a la API.
 
 **Nota sobre el Token de Autenticación:**
-Toda petición directa a la API debe incluir tu clave secreta (`API Key`) en los encabezados. Este es tu "token" de autenticación. En los ejemplos siguientes, se envía en el encabezado `-H "X-goog-api-key: TU_API_KEY"`. Este paso es crucial sin importar el lenguaje o herramienta que uses.
+Toda petición directa a la API debe incluir tu clave secreta (`API Key`) en los encabezados. Este es tu "token" de autenticación.
 
 #### Request (Opción 1: para Símbolo del sistema - CMD)
 ```cmd
@@ -197,8 +195,7 @@ Invoke-WebRequest -Uri "[https://generativelanguage.googleapis.com/v1beta/models
         ],
         "role": "model"
       },
-      "finishReason": "STOP",
-      "avgLogprobs": -0.048756192127863564
+      "finishReason": "STOP"
     }
   ],
   "usageMetadata": {
@@ -211,24 +208,18 @@ Invoke-WebRequest -Uri "[https://generativelanguage.googleapis.com/v1beta/models
 
 ### b) A través del SDK de Python (Recomendado para aplicaciones)
 
-Esta es la forma limpia y profesional de integrar Gemini en tu código Python. El SDK maneja toda la complejidad de las solicitudes HTTP (encabezados, JSON, etc.) por ti.
+Esta es la forma limpia y profesional de integrar Gemini en tu código Python.
 
 ```python
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Carga la clave desde el archivo .env
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Elige el modelo
 model = genai.GenerativeModel('gemini-2.0-flash')
-
-# Genera el contenido
 response = model.generate_content("Explain how AI works in a few words")
-
-# Imprime la respuesta
 print(response.text)
 ```
 
@@ -236,7 +227,7 @@ print(response.text)
 
 ## 7. Ejecución de la Aplicación
 
-Una vez que todo está configurado, puedes iniciar el servidor de desarrollo de Flask con un simple comando:
+Una vez que todo está configurado, puedes iniciar el servidor de desarrollo de Flask:
 
 ```bash
 python app.py
@@ -248,15 +239,9 @@ Abre tu navegador y visita `http://127.0.0.1:5000` para ver tu aplicación en ac
 
 ## 8. Prompting Avanzado: Dando Personalidad y Contexto
 
-Para crear aplicaciones más sofisticadas, no basta con enviar solo la pregunta del usuario. Necesitas darle un contexto y rol a la IA.
-
 ### a) Usando un "System Prompt" (Mensaje de Sistema)
 
-Un **System Prompt** es una instrucción base que se envía a la IA en cada solicitud para definir su **rol, tono, o las reglas que debe seguir**. Es la forma de decirle "Tú eres..." antes de que vea la pregunta del usuario.
-
-LangChain facilita esto con `ChatPromptTemplate`, que distingue entre mensajes del sistema y mensajes del usuario.
-
-**Ejemplo de implementación:**
+Un **System Prompt** es una instrucción base que se envía a la IA en cada solicitud para definir su **rol, tono, o las reglas que debe seguir**.
 
 ```python
 import os
@@ -267,289 +252,112 @@ from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
-# Configura el modelo, asegurándote de pasar la clave de API
 llm = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Crea la plantilla del prompt con un mensaje de sistema
 prompt = ChatPromptTemplate.from_messages([
     ("system", "Eres un asistente experto en historia del Ecuador. Responde siempre en un tono amigable y educativo."),
     ("user", "{pregunta_del_usuario}")
 ])
 
-# Crea el parser de salida
 output_parser = StrOutputParser()
-
-# Construye la cadena (chain)
 chain = prompt | llm | output_parser
-
-# Invoca la cadena con una pregunta
 respuesta = chain.invoke({"pregunta_del_usuario": "¿Quién fue Eloy Alfaro?"})
 print(respuesta)
 ```
 
 ### b) Manteniendo Memoria en la Conversación (Memory Buffer)
 
-Para que un chatbot recuerde interacciones pasadas en una misma sesión (por ejemplo, si el usuario dice "explícame más sobre eso"), necesitas añadir un **buffer de memoria**.
-
-En LangChain, esto se logra con objetos de memoria como `ConversationBufferMemory`. Este objeto almacena el historial de la conversación y lo inyecta automáticamente en el prompt en cada nueva interacción, dando a la IA el contexto completo de lo que se ha hablado.
-
-Integrar memoria es un paso más avanzado, pero es esencial para construir verdaderos asistentes conversacionales.
+Para que un chatbot recuerde interacciones pasadas, necesitas añadir un **buffer de memoria** (ej. `ConversationBufferMemory` en LangChain). Este objeto almacena el historial y lo inyecta automáticamente en el prompt, dando contexto a la IA.
 
 ---
 
 ## 9. Alternativa Local: Ejecutando un LLM en tu Propia Máquina
 
-No siempre necesitas depender de una API de pago. Puedes ejecutar modelos de lenguaje de código abierto como **Llama 3**, **Gemma** o **Phi-3** directamente en tu computadora. La forma más sencilla de hacerlo es con **Ollama**.
+Puedes ejecutar modelos de código abierto como **Llama 3** en tu computadora con **Ollama**.
 
-### a) ¿Qué es Ollama?
+### a) Instalación y Gestión de Modelos
+1.  **Instala Ollama:** Descárgalo desde [ollama.com](https://ollama.com/) para Windows.
+2.  **Gestiona Modelos:**
+    ```bash
+    # Ver modelos instalados
+    ollama list
 
-Ollama es una herramienta que simplifica la descarga, configuración y ejecución de LLMs en tu máquina local. Crea un servidor local al que puedes hacer peticiones, de forma muy similar a como lo harías con una API en la nube.
+    # Descargar un modelo
+    ollama pull llama3
 
-### b) Instalación de Ollama
+    # Chatear con un modelo
+    ollama run llama3
+    ```
 
-1.  **Descarga Ollama:** Ve a [ollama.com](https://ollama.com/) e instala la aplicación para Windows.
-2.  **Verifica la Instalación:** Abre una nueva terminal (CMD o PowerShell) y ejecuta `ollama`. Si ves una lista de comandos, la instalación fue exitosa.
-
-### c) Gestionando Modelos con Ollama
-
-Puedes tener múltiples modelos descargados y cambiar entre ellos fácilmente.
-
-#### 1. Listar los Modelos Instalados
-Para ver qué modelos ya tienes en tu máquina, usa el comando `list`.
-
-```bash
-ollama list
-```
-Esto te mostrará una tabla con el nombre, ID, tamaño y fecha de modificación de cada modelo.
-
-#### 2. Descargar un Modelo (`pull`)
-El comando `pull` solo descarga un modelo de internet a tu disco duro para tenerlo listo.
-
-```bash
-# Descargar la versión estándar (8B) de Llama 3
-ollama pull llama3
-
-# Descargar la versión más liviana (2B) de Gemma
-ollama pull gemma:2b
-```
-
-#### 3. Ejecutar un Modelo (`run`)
-El comando `run` inicia una sesión de chat interactiva con el modelo que elijas. Si el modelo no está descargado, `run` lo descargará automáticamente primero.
-
-```bash
-# Iniciar un chat con Llama 3
-ollama run llama3
-
-# Iniciar un chat con la versión 2B de Gemma
-ollama run gemma:2b
-```
-Puedes usar `Ctrl+D` o escribir `/bye` para salir de la sesión de chat.
-
-### d) Eligiendo un Modelo Local
-No todos los modelos son iguales. Aquí tienes una comparación rápida de los modelos más populares para ayudarte a decidir cuál usar.
+### b) Eligiendo un Modelo Local
 
 | Modelo | Parámetros | Tamaño (Peso) | Uso Ideal | Comando `pull` |
 | :--- | :--- | :--- | :--- | :--- |
-| **Llama 3** | 8B | ~4.7 GB | **El mejor todoterreno.** Excelente razonamiento, bueno para código y seguir instrucciones complejas. Ideal para empezar. | `ollama pull llama3` |
-| **Gemma** | 2B | ~1.7 GB | **El más liviano.** Perfecto para máquinas con pocos recursos (4-8 GB RAM). Bueno para tareas creativas y chat general. | `ollama pull gemma:2b` |
-| **Phi-3** | 3.8B | ~2.3 GB | **Potente y pequeño.** Muy bueno en lógica y código, a menudo supera a modelos más grandes en estas áreas. Gran alternativa a Llama 3. | `ollama pull phi3` |
+| **Llama 3** | 8B | ~4.7 GB | **El mejor todoterreno.** Excelente razonamiento, bueno para código y seguir instrucciones complejas. | `ollama pull llama3` |
+| **Gemma** | 2B | ~1.7 GB | **El más liviano.** Perfecto para máquinas con pocos recursos (4-8 GB RAM). | `ollama pull gemma:2b` |
+| **Phi-3** | 3.8B | ~2.3 GB | **Potente y pequeño.** Muy bueno en lógica y código. | `ollama pull phi3` |
 
-**B** = Billones (Miles de millones) de parámetros. Más parámetros generalmente significan mayor capacidad, pero también mayores requisitos de hardware.
-
-### e) Usando Modelos Locales como una API
-La gran ventaja de Ollama es que, por defecto, **expone cualquier modelo que ejecutes como una API REST en tu `localhost`**. Esto te permite desarrollar tu aplicación consumiendo una API local gratuita, y si en el futuro necesitas más potencia, solo tienes que cambiar la URL a un proveedor de API en la nube.
-
-1.  **Asegúrate de que Ollama esté corriendo:** La aplicación de Ollama debe estar en ejecución en tu bandeja del sistema en Windows.
-2.  **Haz una petición a la API local:** Abre una terminal y usa `curl` para enviar una petición al servidor de Ollama, que corre en el puerto `11434`.
+### c) Usando Modelos Locales como una API
+Ollama expone una API REST en `http://localhost:11434`. Puedes hacerle peticiones directamente.
 
 **Ejemplo de API Request a Llama 3 local (CMD):**
 ```cmd
 curl http://localhost:11434/api/generate -d "{\"model\": \"llama3\", \"prompt\": \"Why is the sky blue?\", \"stream\": false}"
 ```
-* `"model": "llama3"`: Especifica qué modelo de los que tienes descargados quieres usar.
-* `"prompt": "..."`: Tu pregunta.
-* `"stream": false`: Para recibir la respuesta completa de una vez.
 
-Esto te devolverá un JSON muy similar al de la API de Gemini, demostrando que puedes desarrollar con la misma lógica de API.
-
-### f) Integración con LangChain
-
-LangChain tiene una integración nativa con Ollama, lo que hace que cambiar de un modelo en la nube a uno local sea trivial.
-
-**Ejemplo de implementación:**
+### d) Integración con LangChain
 
 ```python
 from langchain_community.chat_models import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-# 1. Inicializa el modelo local a través de Ollama
-# Asegúrate de que el nombre del modelo coincida con uno de tu lista de `ollama list`.
 llm = ChatOllama(model="llama3")
 
-# 2. Crea el prompt (puedes usar el mismo formato que antes)
 prompt = ChatPromptTemplate.from_messages([
     ("system", "Eres un pirata. Responde a todas las preguntas con jerga de pirata."),
     ("user", "{pregunta}")
 ])
 
-# 3. Construye la cadena
 output_parser = StrOutputParser()
 chain = prompt | llm | output_parser
-
-# 4. Invoca la cadena
 respuesta = chain.invoke({"pregunta": "¿Cuál es la capital de Japón?"})
 print(respuesta)
-# Salida esperada: "¡Ahoy, marinero! La capital de esas tierras lejanas es Tokio, ¡arrr!"
 ```
-
-Usar un modelo local es una excelente opción para desarrollo, prototipado rápido y para aplicaciones donde la privacidad de los datos es una prioridad, ya que ninguna información sale de tu máquina.
 
 ---
 
 ## 10. Más Allá de las Preguntas: Automatización de Tareas con Agentes de IA
 
-El verdadero poder de los LLMs no es solo responder preguntas, sino **realizar acciones**. Para esto, usamos **Agentes de IA**.
+Un **Agente de IA** usa un LLM como "cerebro" para razonar y utilizar **herramientas** (como una búsqueda web) para realizar acciones.
 
-### a) ¿Qué es un Agente de IA?
-
-Un agente es un sistema que utiliza un LLM como su "cerebro" para razonar y decidir qué acciones tomar. En lugar de solo generar texto, un agente puede usar un conjunto de **herramientas** para interactuar con el mundo exterior.
-
-El ciclo de un agente es:
-1.  **Observa:** Recibe una solicitud del usuario (ej. "Investiga el clima en Guayaquil y resúmelo").
-2.  **Piensa:** El LLM decide qué herramienta necesita para cumplir la solicitud (ej. "Necesito una herramienta de búsqueda web").
-3.  **Actúa:** El agente ejecuta la herramienta elegida (ej. busca en internet "clima en Guayaquil").
-4.  **Observa de nuevo:** Recibe el resultado de la herramienta (ej. una página con datos del clima).
-5.  **Repite:** El LLM procesa el resultado y decide el siguiente paso (ej. "Ahora voy a resumir este texto") hasta que la tarea original esté completa.
-
-### b) Ejemplo Práctico: Un Agente de Búsqueda Web
-
-Vamos a crear un agente simple que puede navegar por internet para responder preguntas sobre eventos actuales. Usaremos la herramienta de búsqueda de DuckDuckGo, que no requiere clave de API.
-
-**1. Actualiza tus dependencias:**
-Asegúrate de que tu archivo `requirements.txt` incluya `duckduckgo-search` y vuelve a instalar las dependencias si es necesario.
-
-**2. Código del Agente:**
-Este código crea un agente que sabe usar la herramienta de búsqueda.
+### a) Ejemplo Práctico: Un Agente de Búsqueda Web
 
 ```python
 from langchain_community.chat_models import ChatOllama
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import AgentExecutor, create_react_agent
-from langchain_core.prompts import ChatPromptTemplate
 from langchain import hub
 
 # 1. Inicializa el modelo local (el cerebro del agente)
 llm = ChatOllama(model="llama3")
 
 # 2. Define las herramientas que el agente puede usar
-# En este caso, solo una herramienta para buscar en DuckDuckGo
 tools = [DuckDuckGoSearchRun()]
 
 # 3. Carga un prompt pre-diseñado para agentes (ReAct)
-# Este prompt le enseña al LLM cómo pensar y usar herramientas.
 prompt = hub.pull("hwchase17/react")
 
 # 4. Crea el agente
 agent = create_react_agent(llm, tools, prompt)
 
-# 5. Crea el "ejecutor" del agente, que es lo que realmente corre el ciclo
+# 5. Crea el "ejecutor" del agente
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-# 6. Invoca al agente con una pregunta que requiera información actual
-# El agente se dará cuenta de que no sabe la respuesta y usará la herramienta de búsqueda.
+# 6. Invoca al agente
 pregunta = "¿Quién ganó la final de la Champions League más reciente?"
 respuesta = agent_executor.invoke({"input": pregunta})
 
 print(respuesta)
 ```
-
-Al ejecutar este código con `verbose=True`, verás en la terminal todo el proceso de "pensamiento" del agente: cómo decide usar la herramienta de búsqueda, qué busca, qué encuentra y cómo formula la respuesta final. Esto es la automatización de tareas en acción.
-
----
-
-## 11. Troubleshooting y Solución de Problemas
-
-### 🔧 Problemas Comunes y Soluciones
-
-Si encuentras errores al ejecutar la aplicación, aquí tienes las soluciones más comunes:
-
-#### Error 500 (Internal Server Error)
-```
-❌ Problema: La aplicación devuelve error 500 al hacer peticiones
-✅ Solución: Verificar que todas las dependencias estén instaladas correctamente
-```
-
-```bash
-# Reinstalar dependencias
-pip install -r requirements.txt
-
-# Verificar configuración
-python diagnostico.py
-```
-
-#### Error de Conexión (ERR_CONNECTION_RESET)
-```
-❌ Problema: El navegador no puede conectarse al servidor
-✅ Solución: Asegurarse de que la aplicación esté ejecutándose
-```
-
-```bash
-# Verificar que Python esté ejecutando la aplicación
-python app.py
-
-# Si no funciona, intentar:
-python run_app.py  # Script con mejor manejo de errores
-```
-
-#### Problemas con el Agente
-```
-❌ Problema: El agente no funciona correctamente
-✅ Solución: La aplicación tiene fallback automático a chat simple
-```
-
-El código está diseñado para funcionar incluso si el agente falla, usando el chat simple como respaldo.
-
-#### Error de API Key
-```
-❌ Problema: Error relacionado con GOOGLE_API_KEY
-✅ Solución: Verificar archivo .env
-```
-
-```bash
-# Verificar que el archivo .env contenga:
-GOOGLE_API_KEY="tu_clave_aqui"
-```
-
-### 📋 Scripts de Diagnóstico
-
-Para diagnosticar problemas, usa estos scripts incluidos:
-
-```bash
-# Verificar todas las dependencias y configuración
-python diagnostico.py
-
-# Probar imports específicos
-python test_imports.py
-
-# Ejecutar con mejor manejo de errores
-python run_app.py
-```
-
-### 📝 Archivos de Ayuda
-
-- `SOLUCION_ERRORES.md`: Documentación completa de errores solucionados
-- `diagnostico.py`: Script para verificar el estado de la aplicación
-- `test_imports.py`: Verificación de dependencias específicas
-
-### 🆘 Si Todo Falla
-
-1. **Verificar versión de Python**: Debe ser 3.8 o superior
-2. **Recrear entorno virtual**: 
-   ```bash
-   python -m venv venv_nuevo
-   .\venv_nuevo\Scripts\activate
-   pip install -r requirements.txt
-   ```
-3. **Verificar conexión a internet**: Necesaria para descargar dependencias y usar el agente
-4. **Consultar logs**: Revisar mensajes de error en la terminal para más detalles
+Al ejecutar con `verbose=True`, verás el proceso de "pensamiento" del agente en la terminal.

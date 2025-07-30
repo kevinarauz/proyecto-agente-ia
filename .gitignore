@@ -33,6 +33,11 @@ pip-log.txt
 *.out
 *.tmp
 
+# Scripts de diagnóstico y testing (opcionales)
+diagnostico.py
+test_imports.py
+run_app.py
+
 # Otros
 .idea/
 *.swp
