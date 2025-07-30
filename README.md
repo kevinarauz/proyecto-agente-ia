@@ -540,7 +540,109 @@ Al ejecutar este código con `verbose=True`, verás en la terminal todo el proce
 
 ---
 
-## 11. Troubleshooting - Solución de Problemas Comunes
+## 11. El Ecosistema de Herramientas de LangChain: Un Mundo de Posibilidades
+
+LangChain no solo te permite conectar un LLM; te da acceso a una inmensa "caja de herramientas" que tu agente puede aprender a usar. Estas herramientas le permiten interactuar con el mundo digital de maneras que el modelo por sí solo no podría.
+
+Aquí están las categorías más importantes y algunos ejemplos de lo que puedes encontrar:
+
+### 🌐 1. Búsqueda y Acceso a Información
+Son herramientas para que el agente pueda buscar conocimiento que no tiene en su memoria.
+
+- **`DuckDuckGoSearchRun`**: La que ya conoces. Búsqueda web general sin necesidad de API key.
+- **`GoogleSearchAPIWrapper`**: Para usar el motor de búsqueda de Google (requiere API key).
+- **`WikipediaAPIWrapper`**: Para buscar artículos específicos en Wikipedia.
+- **`ArxivAPIWrapper`**: Para buscar artículos científicos y de investigación en Arxiv.
+- **`TavilySearchResults`**: Un motor de búsqueda especializado para LLMs, que devuelve resultados ya optimizados.
+
+### 🗄️ 2. Interacción con Bases de Datos
+Permiten al agente consultar bases de datos para obtener información estructurada.
+
+- **`SQLDatabaseToolkit`**: Una de las más poderosas. Le permite al agente:
+  - Ver el esquema de las tablas
+  - Escribir y ejecutar consultas SQL
+  - Responder preguntas como: "¿Cuál es el total de ventas del último mes?" consultando directamente una base de datos
+- **Herramientas para bases de datos NoSQL**: También existen integraciones para bases de datos como MongoDB, Redis, etc.
+
+### 💻 3. Ejecución de Código y Comandos del Sistema
+Estas son herramientas muy potentes (y deben usarse con precaución) que permiten al agente ejecutar código.
+
+- **`PythonREPLTool`**: Le da al agente un intérprete de Python. Puede escribir y ejecutar código Python para hacer cálculos, manipular datos, etc.
+- **`BashProcess` (o `ShellTool`)**: Permite al agente ejecutar comandos de la terminal (como `ls`, `cat`, `nmap`).
+
+> **⚠️ Advertencia de Seguridad:** Las herramientas de ejecución de código deben usarse con extrema precaución en entornos de producción, ya que pueden ejecutar comandos del sistema.
+
+### 📄 4. Análisis y Manipulación de Archivos
+Además de las herramientas personalizadas que discutimos, LangChain tiene "Cargadores de Documentos" (DocumentLoaders) que actúan como herramientas para leer casi cualquier tipo de archivo.
+
+- **`PyPDFLoader`**: Para cargar y extraer texto de archivos PDF.
+- **`CSVLoader`**: Para leer datos de archivos CSV.
+- **`UnstructuredFileLoader`**: Una herramienta muy versátil que puede intentar leer texto de una gran variedad de formatos, incluyendo `.docx` (Word) y `.pptx` (PowerPoint).
+
+### 🔗 5. Interacción con APIs y Servicios Web
+Permiten que el agente se conecte a prácticamente cualquier servicio que tenga una API.
+
+- **`Requests Tools`**: Herramientas genéricas para hacer peticiones HTTP (GET, POST, etc.) a cualquier API REST.
+- **`OpenWeatherMapAPIWrapper`**: Para obtener el clima actual de cualquier ciudad.
+- **`Google Places API`**: Para buscar información sobre lugares, como restaurantes, tiendas, etc.
+- **`WolframAlphaAPIWrapper`**: Para resolver preguntas complejas de matemáticas, ciencia y conocimiento general.
+
+### 🛠️ 6. Herramientas de Productividad y Colaboración
+Estas son integraciones directas con aplicaciones que usamos todos los días.
+
+- **`GmailToolkit`**: Permite al agente leer, buscar, redactar y enviar correos electrónicos.
+- **`GoogleDriveToolkit`**: Para buscar archivos, leer documentos y crear nuevos en Google Drive.
+- **`JiraToolkit`**: Para crear, buscar y comentar en tickets de Jira.
+- **`Notion / Confluence Tools`**: Para interactuar con tus bases de conocimiento.
+
+### 🎯 La Verdadera Magia: Crear Tus Propias Herramientas
+
+La lista anterior es solo una pequeña muestra. Lo más importante que debes recordar es lo que discutimos antes: **si no existe una herramienta para lo que necesitas, puedes crearla tú mismo**.
+
+Cualquier cosa que puedas programar en una función de Python, puedes convertirla en una herramienta para tu agente. Esto abre un abanico de posibilidades infinito para la automatización de tareas.
+
+**Ejemplo de herramienta personalizada:**
+```python
+from langchain.tools import BaseTool
+from typing import Optional, Type
+from pydantic import BaseModel, Field
+
+class MiHerramientaPersonalizada(BaseTool):
+    name = "calculadora_avanzada"
+    description = "Útil para cálculos matemáticos complejos que requieren fórmulas específicas"
+    
+    def _run(self, operacion: str) -> str:
+        """Ejecuta la operación matemática"""
+        try:
+            # Aquí iría tu lógica personalizada
+            resultado = eval(operacion)  # ⚠️ Solo para ejemplo, usar con precaución
+            return f"El resultado es: {resultado}"
+        except Exception as e:
+            return f"Error en el cálculo: {str(e)}"
+    
+    def _arun(self, operacion: str) -> str:
+        """Versión asíncrona"""
+        raise NotImplementedError("Esta herramienta no soporta ejecución asíncrona")
+
+# Uso en un agente
+tools = [DuckDuckGoSearchRun(), MiHerramientaPersonalizada()]
+```
+
+### 🚀 Expandiendo las Capacidades de Nuestra Aplicación
+
+**Próximas herramientas que podrías agregar a este proyecto:**
+
+1. **Análisis de archivos**: Permitir que el agente lea PDFs y documentos que el usuario suba
+2. **Integración con email**: Que pueda redactar y enviar correos basados en las consultas
+3. **Conexión a bases de datos**: Para consultar información empresarial o personal
+4. **Calculadora científica**: Para resolver problemas matemáticos complejos
+5. **Generación de código**: Que pueda escribir, ejecutar y debuggear scripts
+
+> **💡 Las posibilidades son prácticamente ilimitadas!** Con LangChain, no estás limitado a un simple chatbot. Puedes crear verdaderos asistentes digitales que automaticen tareas complejas y se integren con todo tu ecosistema de herramientas digitales.
+
+---
+
+## 12. Troubleshooting - Solución de Problemas Comunes
 
 ### 🚨 Problemas con Google Gemini
 
