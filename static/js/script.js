@@ -42,6 +42,9 @@ async function handleSubmit(e) {
     const modo = document.getElementById('modoSelect').value;
     const modelo = document.getElementById('modeloSelect').value;
     
+    // Capturar tiempo de inicio
+    const tiempoInicio = new Date();
+    
     // Agregar mensaje del usuario al chat
     agregarMensaje(pregunta, 'usuario');
     
@@ -53,6 +56,10 @@ async function handleSubmit(e) {
         updateLoadingProgress(80, 'Procesando resultados...');
         const respuesta = await enviarPreguntaAPI(pregunta, modo, modelo);
         
+        // Capturar tiempo de finalización
+        const tiempoFin = new Date();
+        const duracion = ((tiempoFin - tiempoInicio) / 1000).toFixed(1);
+        
         updateLoadingProgress(95, 'Finalizando respuesta...');
         
         // Extraer pasos intermedios si están disponibles
@@ -60,16 +67,25 @@ async function handleSubmit(e) {
         if (respuesta.pasos_intermedios && respuesta.pasos_intermedios.length > 0) {
             pasos = respuesta.pasos_intermedios.map(paso => {
                 if (paso.action && paso.action_input) {
-                    return `Acción: ${paso.action} → "${paso.action_input}"`;
+                    return `🔍 Ejecutó búsqueda: "${paso.action_input}"`;
                 } else if (paso.observation) {
-                    return `Resultado: ${paso.observation.substring(0, 100)}...`;
+                    return `📊 Obtuvo resultado: ${paso.observation.substring(0, 150)}...`;
                 }
                 return paso.toString().substring(0, 80) + '...';
             });
         }
         
+        // Crear metadata
+        const metadata = {
+            tiempoInicio: tiempoInicio,
+            tiempoFin: tiempoFin,
+            duracion: duracion,
+            iteraciones: respuesta.pasos_intermedios ? respuesta.pasos_intermedios.length : 0,
+            busquedas: respuesta.pasos_intermedios ? respuesta.pasos_intermedios.filter(p => p.action === 'web_search' || p.action === 'duckduckgo_search').length : 0
+        };
+        
         updateLoadingProgress(100, 'Completado!');
-        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos);
+        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos, metadata);
     } catch (error) {
         console.error('Error:', error);
         Swal.fire({
@@ -110,14 +126,20 @@ async function enviarPreguntaAPI(pregunta, modo, modelo) {
 }
 
 // Agregar mensaje al chat
-function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = null) {
+function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = null, metadata = null) {
     const mensajeDiv = document.createElement('div');
+    const timestamp = new Date();
     
     if (tipo === 'usuario') {
         mensajeDiv.className = 'mensaje-usuario';
         mensajeDiv.innerHTML = `
-            <i class="fas fa-user me-2"></i>
-            ${texto}
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <i class="fas fa-user me-2"></i>
+                    ${texto}
+                </div>
+                <small class="text-muted ms-2">${formatearTiempo(timestamp)}</small>
+            </div>
         `;
     } else if (tipo === 'ia') {
         mensajeDiv.className = 'mensaje-ia';
@@ -138,24 +160,70 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
         const modeloBadge = modeloUsado ? 
             `<span class="modelo-badge">${modeloUsado === 'gemini-1.5-flash' ? '🧠 Gemini' : '🦙 Llama3'}</span>` : '';
         
-        // Agregar cadena de pensamiento si está disponible
-        let cadenaPensamiento = '';
+        // Agregar proceso de pensamiento detallado si está disponible
+        let procesoCompleto = '';
         if (pasos && pasos.length > 0) {
-            cadenaPensamiento = `
-                <div class="cadena-pensamiento mt-2" style="font-size: 0.85em; opacity: 0.8; border-left: 2px solid #007bff; padding-left: 10px;">
-                    <strong>🧠 Proceso de pensamiento:</strong>
-                    <ul class="mb-0 mt-1">
-                        ${pasos.map(paso => `<li>${paso}</li>`).join('')}
-                    </ul>
+            procesoCompleto = `
+                <div class="proceso-pensamiento mt-3">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${Date.now()}" aria-expanded="false">
+                        <i class="fas fa-brain me-1"></i>Ver proceso de pensamiento
+                    </button>
+                    <div class="collapse mt-2" id="pensamiento-${Date.now()}">
+                        <div class="card card-body bg-light">
+                            <h6 class="mb-3"><i class="fas fa-cogs me-1"></i>Proceso de razonamiento:</h6>
+                            ${pasos.map((paso, index) => `
+                                <div class="paso-pensamiento mb-2">
+                                    <strong>Paso ${index + 1}:</strong> ${paso}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Agregar metadata de tiempo y rendimiento
+        let metadataInfo = '';
+        if (metadata) {
+            metadataInfo = `
+                <div class="metadata-info mt-2 p-2 bg-light rounded">
+                    <div class="row text-muted small">
+                        <div class="col-md-4">
+                            <i class="fas fa-clock me-1"></i>
+                            Iniciado: ${formatearTiempo(metadata.tiempoInicio)}
+                        </div>
+                        <div class="col-md-4">
+                            <i class="fas fa-flag-checkered me-1"></i>
+                            Completado: ${formatearTiempo(metadata.tiempoFin)}
+                        </div>
+                        <div class="col-md-4">
+                            <i class="fas fa-stopwatch me-1"></i>
+                            Duración: ${metadata.duracion}s
+                        </div>
+                    </div>
+                    ${metadata.iteraciones ? `
+                        <div class="mt-1 small text-muted">
+                            <i class="fas fa-layer-group me-1"></i>
+                            Iteraciones: ${metadata.iteraciones} | 
+                            <i class="fas fa-search me-1"></i>
+                            Búsquedas: ${metadata.busquedas || 0}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
         
         mensajeDiv.innerHTML = `
-            <i class="${modoIcon} me-2"></i>
-            ${texto}
-            ${cadenaPensamiento}
-            <div class="badges-container">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <i class="${modoIcon} me-2"></i>
+                    ${texto}
+                    ${procesoCompleto}
+                    ${metadataInfo}
+                </div>
+                <small class="text-muted ms-2">${formatearTiempo(timestamp)}</small>
+            </div>
+            <div class="badges-container mt-2">
                 ${modoBadge}
                 ${modeloBadge}
             </div>
@@ -164,6 +232,15 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
     
     chatBody.appendChild(mensajeDiv);
     chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+// Formatear tiempo en formato legible
+function formatearTiempo(fecha) {
+    return fecha.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
 }
 
 // Controlar estado de carga
@@ -315,6 +392,7 @@ async function demoGeneral() {
         });
 
         if (tipoDemo) {
+            const tiempoInicio = new Date();
             setLoading(true);
             
             // Actualizar progreso específico para demo
@@ -338,6 +416,8 @@ async function demoGeneral() {
             }
             
             const data = await response.json();
+            const tiempoFin = new Date();
+            const duracion = ((tiempoFin - tiempoInicio) / 1000).toFixed(1);
             
             updateLoadingProgress(90, 'Formateando respuesta...');
             
@@ -346,17 +426,26 @@ async function demoGeneral() {
             if (data.pasos_intermedios && data.pasos_intermedios.length > 0) {
                 pasos = data.pasos_intermedios.map(paso => {
                     if (paso.action && paso.action_input) {
-                        return `Acción: ${paso.action} → "${paso.action_input}"`;
+                        return `🔍 Ejecutó búsqueda: "${paso.action_input}"`;
                     } else if (paso.observation) {
-                        return `Resultado: ${paso.observation.substring(0, 100)}...`;
+                        return `📊 Obtuvo resultado: ${paso.observation.substring(0, 150)}...`;
                     }
                     return paso.toString().substring(0, 80) + '...';
                 });
             }
             
+            // Crear metadata para demo
+            const metadata = {
+                tiempoInicio: tiempoInicio,
+                tiempoFin: tiempoFin,
+                duracion: duracion,
+                iteraciones: data.pasos_intermedios ? data.pasos_intermedios.length : 0,
+                busquedas: data.pasos_intermedios ? data.pasos_intermedios.filter(p => p.action === 'web_search' || p.action === 'duckduckgo_search').length : 0
+            };
+            
             updateLoadingProgress(100, 'Demo completado!');
             agregarMensaje(data.pregunta, 'usuario');
-            agregarMensaje(data.respuesta, 'ia', data.modo, data.modelo_usado, pasos);
+            agregarMensaje(data.respuesta, 'ia', data.modo, data.modelo_usado, pasos, metadata);
             
             const tipoEmoji = {
                 'noticias': '📰', 'bitcoin': '₿', 'deportes': '⚽', 

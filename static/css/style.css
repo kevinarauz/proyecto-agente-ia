@@ -33,6 +33,44 @@
     color: var(--primary-color);
 }
 
+/* Metadata y proceso de pensamiento */
+.metadata-info {
+    background: rgba(248, 249, 250, 0.8);
+    border: 1px solid rgba(0,123,255,0.2);
+    font-size: 0.8em;
+}
+
+.metadata-info .row > div {
+    padding: 2px 0;
+}
+
+.proceso-pensamiento .btn {
+    font-size: 0.8em;
+    padding: 4px 8px;
+}
+
+.paso-pensamiento {
+    padding: 8px;
+    background: rgba(0,123,255,0.05);
+    border-left: 3px solid var(--primary-color);
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.paso-pensamiento:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* Timestamps en mensajes */
+.mensaje-usuario, .mensaje-ia {
+    position: relative;
+}
+
+.mensaje-usuario small, .mensaje-ia small {
+    font-size: 0.7em;
+    white-space: nowrap;
+}
+
 /* Cadena de pensamiento */
 .cadena-pensamiento {
     background: rgba(0, 123, 255, 0.05);

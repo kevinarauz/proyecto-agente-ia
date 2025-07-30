@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+import time
 from typing import Optional, Union, Tuple
 from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
@@ -338,26 +339,41 @@ def chat() -> Union[Response, Tuple[Response, int]]:
         if modo == 'agente' and modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
             # Usar el agente para preguntas que puedan requerir búsqueda web
             try:
+                tiempo_inicio = time.time()
                 respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
+                tiempo_fin = time.time()
+                duracion = round(tiempo_fin - tiempo_inicio, 2)
                 
                 # Extraer pasos intermedios si están disponibles
                 pasos_intermedios = []
+                busquedas_count = 0
                 if 'intermediate_steps' in respuesta_completa:
                     for paso in respuesta_completa['intermediate_steps']:
                         if len(paso) >= 2:
                             accion = paso[0]
                             observacion = paso[1]
+                            
+                            # Contar búsquedas
+                            if accion.tool in ['web_search', 'duckduckgo_search']:
+                                busquedas_count += 1
+                            
                             pasos_intermedios.append({
                                 'action': accion.tool,
                                 'action_input': accion.tool_input,
-                                'observation': observacion[:200] + '...' if len(observacion) > 200 else observacion
+                                'observation': observacion[:300] + '...' if len(observacion) > 300 else observacion
                             })
                 
                 return jsonify({
                     'respuesta': respuesta_completa['output'],
                     'modo': 'agente',
                     'modelo_usado': modelo_seleccionado,
-                    'pasos_intermedios': pasos_intermedios
+                    'pasos_intermedios': pasos_intermedios,
+                    'metadata': {
+                        'duracion': duracion,
+                        'iteraciones': len(pasos_intermedios),
+                        'busquedas': busquedas_count,
+                        'timestamp': time.time()
+                    }
                 })
             except Exception as e:
                 error_msg = str(e)
@@ -724,19 +740,28 @@ def agente_general() -> Union[Response, Tuple[Response, int]]:
         if modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
             try:
                 print(f"🤖 Ejecutando demo '{tipo_demo}' con {modelo_seleccionado}")
+                tiempo_inicio = time.time()
                 respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
+                tiempo_fin = time.time()
+                duracion = round(tiempo_fin - tiempo_inicio, 2)
                 
                 # Extraer pasos intermedios si están disponibles
                 pasos_intermedios = []
+                busquedas_count = 0
                 if 'intermediate_steps' in respuesta_completa:
                     for paso in respuesta_completa['intermediate_steps']:
                         if len(paso) >= 2:
                             accion = paso[0]
                             observacion = paso[1]
+                            
+                            # Contar búsquedas
+                            if accion.tool in ['web_search', 'duckduckgo_search']:
+                                busquedas_count += 1
+                            
                             pasos_intermedios.append({
                                 'action': accion.tool,
                                 'action_input': accion.tool_input,
-                                'observation': observacion[:200] + '...' if len(observacion) > 200 else observacion
+                                'observation': observacion[:300] + '...' if len(observacion) > 300 else observacion
                             })
                 
                 return jsonify({
@@ -745,7 +770,13 @@ def agente_general() -> Union[Response, Tuple[Response, int]]:
                     'modo': 'agente_general',
                     'modelo_usado': modelo_seleccionado,
                     'tipo_demo': tipo_demo,
-                    'pasos_intermedios': pasos_intermedios
+                    'pasos_intermedios': pasos_intermedios,
+                    'metadata': {
+                        'duracion': duracion,
+                        'iteraciones': len(pasos_intermedios),
+                        'busquedas': busquedas_count,
+                        'timestamp': time.time()
+                    }
                 })
                 
             except Exception as e:
