@@ -1,0 +1,231 @@
+/* Estilos personalizados para la aplicación de IA */
+
+:root {
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+}
+
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Header Styles */
+header h1 {
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Card Styles */
+.card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+}
+
+.card-header {
+    border-radius: 15px 15px 0 0 !important;
+    background: linear-gradient(45deg, var(--primary-color), #0056b3) !important;
+}
+
+.bg-gradient {
+    background: linear-gradient(45deg, var(--primary-color), #0056b3) !important;
+}
+
+/* Chat Styles */
+.chat-container {
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+}
+
+.mensaje-usuario {
+    background: linear-gradient(45deg, var(--primary-color), #0056b3);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 20px 20px 5px 20px;
+    margin: 10px 0 10px auto;
+    max-width: 80%;
+    word-wrap: break-word;
+    box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+    animation: slideInRight 0.3s ease;
+}
+
+.mensaje-ia {
+    background: linear-gradient(45deg, #ffffff, #f8f9fa);
+    color: var(--dark-color);
+    padding: 12px 18px;
+    border-radius: 20px 20px 20px 5px;
+    margin: 10px auto 10px 0;
+    max-width: 80%;
+    word-wrap: break-word;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-left: 4px solid var(--primary-color);
+    animation: slideInLeft 0.3s ease;
+}
+
+.mensaje-sistema {
+    background: linear-gradient(45deg, var(--info-color), #138496);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 15px;
+    margin: 10px 0;
+    text-align: center;
+    font-style: italic;
+    box-shadow: 0 4px 15px rgba(23,162,184,0.3);
+}
+
+.modo-badge {
+    font-size: 0.7em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 10px;
+}
+
+.modo-simple {
+    background-color: var(--info-color);
+}
+
+.modo-agente {
+    background-color: var(--success-color);
+}
+
+/* Animations */
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Button Styles */
+.btn {
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, var(--primary-color), #0056b3);
+    border: none;
+}
+
+.btn-outline-info:hover {
+    animation: pulse 0.6s infinite;
+}
+
+/* Form Styles */
+.form-control {
+    border-radius: 25px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    transform: translateY(-1px);
+}
+
+.form-select {
+    border-radius: 15px;
+    border: 2px solid #e9ecef;
+}
+
+/* Loading Styles */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Scrollbar Styles */
+.chat-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.chat-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, var(--primary-color), #0056b3);
+    border-radius: 10px;
+}
+
+.chat-body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(45deg, #0056b3, var(--primary-color));
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .chat-container {
+        height: 400px;
+    }
+    
+    .mensaje-usuario,
+    .mensaje-ia {
+        max-width: 95%;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .mensaje-ia {
+        background: linear-gradient(45deg, #2d3748, #4a5568);
+        color: #f7fafc;
+    }
+}

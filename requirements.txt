@@ -1,0 +1,7 @@
+flask
+langchain
+langchain-google-genai
+langchain-community
+python-dotenv
+duckduckgo-search
+google-generativeai
