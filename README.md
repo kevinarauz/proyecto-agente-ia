@@ -4,13 +4,14 @@
 
 ## ✨ Características Principales
 
-- **🧠 Selección Multi-Modelo**: Elige entre Google Gemini y Llama3 (local)
-- **💬 Chat Simple**: Respuestas directas con el modelo seleccionado
-- **🔍 Agente con Búsqueda Web**: Puede buscar información actual en internet
+- **🧠 Selección Multi-Modelo**: Elige entre Google Gemini (nube) y Llama3 (local)
+- **💬 Chat Simple**: Respuestas directas con el modelo seleccionado (sin acceso web)
+- **🔍 Agente con Búsqueda Web**: **Ambos modelos** pueden buscar información actual en internet vía DuckDuckGo
 - **🎨 Interfaz Moderna**: Diseño responsive con Bootstrap y animaciones
-- **⚙️ Dos Modos de Operación**: Simple y Agente con herramientas
+- **⚙️ Dos Modos de Operación**: Simple (solo conocimiento interno) y Agente (con herramientas web)
 - **🚀 Demo Interactivo**: Ejemplos predefinidos para probar las capacidades
 - **🏷️ Indicadores Visuales**: Badges que muestran qué modelo y modo fue usado
+- **🌐 Búsqueda Web Universal**: DuckDuckGo integrado para que modelos sin acceso web puedan obtener información actualizada
 
 ## 🚀 Ejecución Rápida
 
@@ -45,8 +46,8 @@ Esta aplicación demuestra el poder de los **Agentes de IA**: sistemas que no so
 | **Backend** | ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) | Lenguaje de programación principal para la lógica del servidor. |
 | | ![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white) | Micro-framework web para crear las rutas y manejar las solicitudes HTTP. |
 | **Inteligencia Artificial**| ![LangChain](https://img.shields.io/badge/LangChain-000000?style=for-the-badge) | Framework para simplificar la interacción con los modelos de lenguaje. |
-| | ![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B7?style=for-the-badge&logo=google-gemini&logoColor=white) | Modelo de lenguaje en la nube con capacidades avanzadas (API). |
-| | ![Llama3](https://img.shields.io/badge/Llama3-FF6B35?style=for-the-badge&logo=meta&logoColor=white) | Modelo de lenguaje local ejecutado vía Ollama (sin dependencia de internet). |
+| | ![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B7?style=for-the-badge&logo=google-gemini&logoColor=white) | Modelo de lenguaje en la nube con capacidades avanzadas (API). **Nota:** Se integra con DuckDuckGo para búsqueda web. |
+| | ![Llama3](https://img.shields.io/badge/Llama3-FF6B35?style=for-the-badge&logo=meta&logoColor=white) | Modelo de lenguaje local ejecutado vía Ollama (sin dependencia de internet para el modelo, pero puede usar búsqueda web). |
 | **Frontend** | ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white) | Estructura de la página web. |
 | | ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white) | Estilos y diseño visual. |
 | | ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black) | Interactividad en el lado del cliente. |
@@ -440,26 +441,40 @@ El ciclo de un agente es:
 
 ### b) Ejemplo Práctico: Un Agente de Búsqueda Web
 
-Vamos a crear un agente simple que puede navegar por internet para responder preguntas sobre eventos actuales. Usaremos la herramienta de búsqueda de DuckDuckGo, que no requiere clave de API.
+Vamos a crear un agente que puede navegar por internet para responder preguntas sobre eventos actuales. Usaremos la herramienta de búsqueda de DuckDuckGo, que no requiere clave de API y funciona tanto con modelos locales (Llama3) como con modelos en la nube (Google Gemini).
+
+> **💡 Nota Importante sobre Gemini:** Google Gemini por sí solo NO puede buscar en la web directamente. Sin embargo, al usar LangChain con el patrón de Agentes, podemos darle la capacidad de búsqueda web a través de DuckDuckGoSearchRun. El agente usa el modelo Gemini como "cerebro" para decidir cuándo y cómo usar la herramienta de búsqueda.
 
 **1. Actualiza tus dependencias:**
 Asegúrate de que tu archivo `requirements.txt` incluya `duckduckgo-search` y vuelve a instalar las dependencias si es necesario.
 
-**2. Código del Agente:**
-Este código crea un agente que sabe usar la herramienta de búsqueda.
+**2. Código del Agente (funciona con cualquier modelo):**
+Este código crea un agente que sabe usar la herramienta de búsqueda, ya sea con Llama3 local o Gemini en la nube.
 
 ```python
 from langchain_community.chat_models import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import ChatPromptTemplate
 from langchain import hub
+import os
+from dotenv import load_dotenv
 
-# 1. Inicializa el modelo local (el cerebro del agente)
+load_dotenv()
+
+# 1. Inicializa el modelo que prefieras (local o nube)
+# Opción A: Modelo local
 llm = ChatOllama(model="llama3")
 
+# Opción B: Modelo en la nube (Gemini) - descomenta para usar
+# llm = ChatGoogleGenerativeAI(
+#     model="gemini-1.5-flash", 
+#     google_api_key=os.getenv("GOOGLE_API_KEY")
+# )
+
 # 2. Define las herramientas que el agente puede usar
-# En este caso, solo una herramienta para buscar en DuckDuckGo
+# DuckDuckGo permite que CUALQUIER modelo busque en la web
 tools = [DuckDuckGoSearchRun()]
 
 # 3. Carga un prompt pre-diseñado para agentes (ReAct)
@@ -480,7 +495,48 @@ respuesta = agent_executor.invoke({"input": pregunta})
 print(respuesta)
 ```
 
-Al ejecutar este código con `verbose=True`, verás en la terminal todo el proceso de "pensamiento" del agente: cómo decide usar la herramienta de búsqueda, qué busca, qué encuentra y cómo formula la respuesta final. Esto es la automatización de tareas en acción.
+### c) Cómo Funciona la Integración Web para Gemini
+
+Cuando usas Google Gemini en modo **Agente** (no en modo simple), el flujo es el siguiente:
+
+1. **Usuario pregunta:** "¿Cuál es el clima actual en Quito?"
+2. **Gemini analiza:** "No tengo información actualizada sobre el clima, necesito buscar en la web"
+3. **Agente ejecuta:** DuckDuckGoSearchRun busca "clima actual Quito Ecuador"
+4. **DuckDuckGo responde:** Con información actualizada del clima
+5. **Gemini procesa:** Los resultados de búsqueda y formula una respuesta coherente
+6. **Usuario recibe:** Una respuesta actualizada basada en datos reales de internet
+
+**Diferencias clave entre los modos:**
+
+| Modo | Gemini | Llama3 | Capacidad Web |
+|------|--------|---------|---------------|
+| **Simple** | ❌ Sin acceso web | ❌ Sin acceso web | Respuestas basadas solo en entrenamiento |
+| **Agente** | ✅ Con DuckDuckGo | ✅ Con DuckDuckGo | Puede buscar información actualizada |
+
+### d) Configuración Multi-Modelo en la Aplicación
+
+En nuestra aplicación Flask, ambos modelos (Gemini y Llama3) tienen acceso a las mismas herramientas cuando funcionan como agentes:
+
+```python
+# En app.py - ambos modelos pueden usar búsqueda web
+tools = [DuckDuckGoSearchRun()]
+
+# Se crean agentes para cada modelo disponible
+for model_name, model_instance in models.items():
+    if model_instance is not None:
+        agent = create_react_agent(model_instance, tools, agent_prompt)
+        agents[model_name] = AgentExecutor(agent=agent, tools=tools, verbose=True)
+```
+
+Esto significa que tanto Gemini como Llama3 pueden:
+- Responder preguntas básicas (modo simple)
+- Buscar información actualizada en internet (modo agente)
+- Usar la misma interfaz de usuario
+- Mostrar el mismo tipo de resultados
+
+Al ejecutar este código con `verbose=True`, verás en la terminal todo el proceso de "pensamiento" del agente: cómo decide usar la herramienta de búsqueda, qué busca, qué encuentra y cómo formula la respuesta final. Esto funciona igual tanto con Llama3 local como con Gemini en la nube - ambos pueden usar DuckDuckGo para obtener información actualizada.
+
+> **🎯 Ventaja Clave:** La integración con DuckDuckGo permite que modelos como Gemini (que normalmente no tienen acceso a internet) puedan responder preguntas sobre eventos actuales, noticias, clima, precios, etc.
 
 ---
 
@@ -503,6 +559,27 @@ model="gemini-1.5-flash"
 1. Verifica que tu clave API esté correcta en el archivo `.env`
 2. Asegúrate de que la API de Gemini esté habilitada en Google Cloud Console
 3. Comprueba que no hay espacios extra en la clave API
+
+#### ❓ "¿Por qué Gemini puede buscar en la web si es solo una API?"
+**Explicación:** Google Gemini por sí solo NO puede buscar en la web. Sin embargo, nuestra aplicación usa el patrón de **Agentes de LangChain** que le da esta capacidad:
+
+1. **Modo Simple**: Gemini responde solo con su conocimiento interno (sin web)
+2. **Modo Agente**: Gemini + DuckDuckGoSearchRun = Puede buscar en internet
+
+**Flujo del Agente:**
+```
+Usuario: "¿Cuál es el precio actual del Bitcoin?"
+↓
+Gemini (cerebro): "No sé el precio actual, necesito buscar"
+↓
+DuckDuckGo (herramienta): Busca "precio actual Bitcoin"
+↓
+Gemini (cerebro): Procesa los resultados y formula respuesta
+↓
+Usuario: Recibe información actualizada
+```
+
+Esto es una **funcionalidad de nuestra aplicación**, no de la API de Gemini directamente.
 
 ### 🦙 Problemas con Ollama/Llama3
 
