@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners
     document.getElementById('chatForm').addEventListener('submit', handleSubmit);
     document.getElementById('modeloSelect').addEventListener('change', actualizarMensajeBienvenida);
+    document.getElementById('permitirInternet').addEventListener('change', manejarCambioInternet);
+    document.getElementById('modoSelect').addEventListener('change', validarModoInternet);
     preguntaInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -34,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Actualizar mensaje inicial
     actualizarMensajeBienvenida();
+    validarModoInternet();
 });
 
 // Función para actualizar el mensaje de bienvenida según el modelo seleccionado
@@ -68,8 +71,77 @@ function actualizarMensajeBienvenida() {
             mensaje = `¡Hola! Soy tu asistente de IA con ${modeloTexto}. Puedo responder preguntas y ayudarte con diversas tareas.`;
     }
     
-    mensaje += ' Puedo responder preguntas básicas o usar búsqueda web para información actual.';
+    mensaje += ' Puedo responder preguntas básicas';
+    
+    // Agregar información sobre búsqueda web según la configuración
+    const permitirInternet = document.getElementById('permitirInternet');
+    if (permitirInternet && permitirInternet.checked) {
+        mensaje += ' o usar búsqueda web para información actual.';
+    } else {
+        mensaje += ' usando mi conocimiento base (búsqueda web deshabilitada).';
+    }
+    
     textoBienvenida.textContent = mensaje;
+}
+
+// Función para manejar cambio en el toggle de internet
+function manejarCambioInternet() {
+    const permitirInternet = document.getElementById('permitirInternet');
+    const labelInternet = document.getElementById('labelInternet');
+    const modoSelect = document.getElementById('modoSelect');
+    
+    if (permitirInternet.checked) {
+        labelInternet.innerHTML = '<i class="fas fa-wifi me-1"></i>Permitir búsqueda web';
+        labelInternet.className = 'form-check-label text-success';
+    } else {
+        labelInternet.innerHTML = '<i class="fas fa-wifi-slash me-1"></i>Solo conocimiento base';
+        labelInternet.className = 'form-check-label text-warning';
+        
+        // Si está deshabilitado internet, forzar modo simple
+        if (modoSelect.value !== 'simple') {
+            modoSelect.value = 'simple';
+            Swal.fire({
+                icon: 'info',
+                title: 'Modo Cambiado',
+                text: 'Al deshabilitar internet, se cambió automáticamente a Chat Simple.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    }
+    
+    validarModoInternet();
+    actualizarMensajeBienvenida(); // Actualizar mensaje cuando cambie la configuración
+}
+
+// Función para validar que el modo sea compatible con la configuración de internet
+function validarModoInternet() {
+    const permitirInternet = document.getElementById('permitirInternet');
+    const modoSelect = document.getElementById('modoSelect');
+    
+    // Deshabilitar opciones que requieren internet si está deshabilitado
+    const opciones = modoSelect.options;
+    for (let i = 0; i < opciones.length; i++) {
+        const opcion = opciones[i];
+        if (opcion.value !== 'simple') {
+            opcion.disabled = !permitirInternet.checked;
+            if (!permitirInternet.checked) {
+                opcion.style.color = '#6c757d';
+                if (opcion.value === 'agente') {
+                    opcion.text = '🔍 Agente con Búsqueda Web (Deshabilitado)';
+                } else if (opcion.value === 'busqueda_rapida') {
+                    opcion.text = '⚡ Búsqueda Rápida (Deshabilitado)';
+                }
+            } else {
+                opcion.style.color = '';
+                if (opcion.value === 'agente') {
+                    opcion.text = '🔍 Agente con Búsqueda Web';
+                } else if (opcion.value === 'busqueda_rapida') {
+                    opcion.text = '⚡ Búsqueda Rápida';
+                }
+            }
+        }
+    }
 }
 
 // Manejar envío del formulario
@@ -81,6 +153,19 @@ async function handleSubmit(e) {
     
     const modo = document.getElementById('modoSelect').value;
     const modelo = document.getElementById('modeloSelect').value;
+    const permitirInternet = document.getElementById('permitirInternet').checked;
+    
+    // Verificar si el modo requiere internet pero está deshabilitado
+    if (!permitirInternet && (modo === 'agente' || modo === 'busqueda_rapida')) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Búsqueda web deshabilitada',
+            text: 'Has deshabilitado la búsqueda web. Se usará Chat Simple para esta consulta.',
+            confirmButtonColor: '#007bff'
+        });
+        document.getElementById('modoSelect').value = 'simple';
+        return;
+    }
     
     // Capturar tiempo de inicio
     const tiempoInicio = new Date();
@@ -94,7 +179,7 @@ async function handleSubmit(e) {
     
     try {
         updateLoadingProgress(80, 'Procesando resultados...');
-        const respuesta = await enviarPreguntaAPI(pregunta, modo, modelo);
+        const respuesta = await enviarPreguntaAPI(pregunta, modo, modelo, permitirInternet);
         
         // Capturar tiempo de finalización
         const tiempoFin = new Date();
@@ -130,7 +215,8 @@ async function handleSubmit(e) {
             tiempoFin: respuesta.metadata?.timestamp_fin ? new Date(respuesta.metadata.timestamp_fin * 1000) : tiempoFin,
             duracion: respuesta.metadata?.duracion || duracion,
             iteraciones: respuesta.metadata?.iteraciones || 0,
-            busquedas: respuesta.metadata?.busquedas || 0
+            busquedas: respuesta.metadata?.busquedas || 0,
+            internetHabilitado: permitirInternet
         };
         
         updateLoadingProgress(100, 'Completado!');
@@ -149,10 +235,15 @@ async function handleSubmit(e) {
 }
 
 // Enviar pregunta a la API
-async function enviarPreguntaAPI(pregunta, modo, modelo) {
+async function enviarPreguntaAPI(pregunta, modo, modelo, permitirInternet = true) {
     let endpoint = '/chat';
     if (modo === 'busqueda_rapida') {
         endpoint = '/busqueda-rapida';
+    }
+    
+    // Forzar modo simple si internet está deshabilitado
+    if (!permitirInternet && modo !== 'simple') {
+        modo = 'simple';
     }
     
     const response = await fetch(endpoint, {
@@ -163,7 +254,8 @@ async function enviarPreguntaAPI(pregunta, modo, modelo) {
         body: JSON.stringify({
             pregunta: pregunta,
             modo: modo,
-            modelo: modelo
+            modelo: modelo,
+            permitir_internet: permitirInternet
         })
     });
     
@@ -228,6 +320,20 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
         }
         
         const modeloBadge = getModeloBadge(modeloUsado);
+        
+        // Badge para indicar si se usó internet
+        let internetBadge = '';
+        if (metadata && metadata.hasOwnProperty('internetHabilitado')) {
+            if (metadata.internetHabilitado) {
+                if (metadata.busquedas > 0) {
+                    internetBadge = '<span class="modo-badge" style="background-color: #17a2b8;">🌐 Web Activa</span>';
+                } else {
+                    internetBadge = '<span class="modo-badge" style="background-color: #6c757d;">🌐 Web Disponible</span>';
+                }
+            } else {
+                internetBadge = '<span class="modo-badge" style="background-color: #ffc107; color: #212529;">📚 Solo Base</span>';
+            }
+        }
         
         // Agregar proceso de pensamiento detallado si está disponible
         let procesoCompleto = '';
@@ -313,6 +419,7 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
             <div class="badges-container mt-2">
                 ${modoBadge}
                 ${modeloBadge}
+                ${internetBadge}
             </div>
         `;
     }
