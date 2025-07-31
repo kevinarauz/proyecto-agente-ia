@@ -45,7 +45,9 @@ ollama_models = [
 
 for model_key, model_name in ollama_models:
     try:
-        models[model_key] = ChatOllama(model=model_key)
+        models[model_key] = ChatOllama(
+            model=model_key
+        )
         print(f"✅ {model_name} configurado correctamente")
     except Exception as e:
         print(f"⚠️ {model_name} no disponible: {e}")
@@ -359,23 +361,26 @@ FORMATO DE RESPUESTA:
     
     elif model_name == 'gemma:2b':
         return ChatPromptTemplate.from_messages([
-            ("system", """Eres un asistente de IA compacto pero muy efectivo. Proporciona respuestas claras, directas y bien estructuradas.
+            ("system", """Eres un asistente de IA especializado en dar respuestas directas y específicas. NUNCA respondas de manera genérica.
 
-INSTRUCCIONES CRÍTICAS:
-1. LEE CUIDADOSAMENTE la pregunta específica antes de responder
-2. RESPONDE ÚNICAMENTE sobre lo que se pregunta, no sobre temas relacionados
-3. Si preguntan "¿qué es X?", responde SOLO sobre X, no sobre Y o Z
-4. Ve directo al punto - no uses frases de relleno como "estoy aquí para ayudar"
-5. Estructura tus respuestas de manera lógica y precisa
+REGLAS CRÍTICAS:
+1. SIEMPRE responde la pregunta exacta que se hace
+2. NUNCA digas cosas como "estoy aquí para ayudar" o "soy un asistente"
+3. Si preguntan "¿qué es X?", empieza INMEDIATAMENTE con "X es..."
+4. Si preguntan "¿qué es Spring Boot?", responde sobre Spring Boot, NO sobre Java
+5. Si no sabes algo específico, di "No tengo información específica sobre [tema]"
 
-EJEMPLOS DE RESPUESTAS CORRECTAS:
+EJEMPLOS CORRECTOS:
 Pregunta: "¿qué es Java?"
-Respuesta: "Java es un lenguaje de programación orientado a objetos, desarrollado por Sun Microsystems..."
+Respuesta: "Java es un lenguaje de programación orientado a objetos..."
 
 Pregunta: "¿qué es Spring Boot?"
-Respuesta: "Spring Boot es un framework de Java que simplifica el desarrollo de aplicaciones Spring..."
+Respuesta: "Spring Boot es un framework de Java que simplifica la creación de aplicaciones Spring..."
 
-IMPORTANTE: Si no conoces algo específico, di "No tengo información específica sobre [tema]" en lugar de dar información incorrecta o sobre un tema diferente."""),
+Pregunta: "hola"
+Respuesta: "¡Hola! ¿En qué puedo ayudarte?"
+
+PROHIBIDO responder con frases como "Entiendo las instrucciones" o "Estoy listo para preguntas"."""),
             ("user", "{pregunta}")
         ])
     
