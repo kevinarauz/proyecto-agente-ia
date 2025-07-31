@@ -207,8 +207,27 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
             modoBadge = '<span class="modo-badge modo-fallback">Fallback</span>';
         }
         
-        const modeloBadge = modeloUsado ? 
-            `<span class="modelo-badge">${modeloUsado === 'gemini-1.5-flash' ? '🧠 Gemini' : '🦙 Llama3'}</span>` : '';
+        // Función para obtener el badge del modelo con icono correcto
+        function getModeloBadge(modelo) {
+            if (!modelo) return '';
+            
+            switch(modelo) {
+                case 'llama3':
+                    return '<span class="modelo-badge">🦙 Llama3</span>';
+                case 'deepseek-coder':
+                    return '<span class="modelo-badge">💻 DeepSeek</span>';
+                case 'phi3':
+                    return '<span class="modelo-badge">🔬 Phi-3</span>';
+                case 'gemma:2b':
+                    return '<span class="modelo-badge">💎 Gemma</span>';
+                case 'gemini-1.5-flash':
+                    return '<span class="modelo-badge">🧠 Gemini</span>';
+                default:
+                    return `<span class="modelo-badge">🤖 ${modelo}</span>`;
+            }
+        }
+        
+        const modeloBadge = getModeloBadge(modeloUsado);
         
         // Agregar proceso de pensamiento detallado si está disponible
         let procesoCompleto = '';
