@@ -32,17 +32,24 @@ app.config.from_object(Config)
 
 print("🤖 Configurando modelos de IA...")
 
-# Configurar ambos modelos de IA
+# Configurar modelos de IA
 models = {}
 
-# Configurar Llama3 (local)
-try:
-    # ChatOllama requiere el parámetro model
-    models['llama3'] = ChatOllama(model="llama3")
-    print("✅ Llama3 configurado correctamente")
-except Exception as e:
-    print(f"⚠️ Llama3 no disponible: {e}")
-    models['llama3'] = None
+# Configurar modelos de Ollama (locales)
+ollama_models = [
+    ('llama3', 'Llama3 8B'),
+    ('deepseek-coder', 'DeepSeek Coder'),
+    ('phi3', 'Microsoft Phi-3'),
+    ('gemma:2b', 'Google Gemma 2B')
+]
+
+for model_key, model_name in ollama_models:
+    try:
+        models[model_key] = ChatOllama(model=model_key)
+        print(f"✅ {model_name} configurado correctamente")
+    except Exception as e:
+        print(f"⚠️ {model_name} no disponible: {e}")
+        models[model_key] = None
 
 # Configurar Google Gemini (API)
 try:
@@ -317,8 +324,10 @@ simple_chains = {}
 for model_name, model_instance in models.items():
     if model_instance is not None:
         # Configurar chain con temperatura si es posible
-        if model_name == 'llama3':
-            # Para ChatOllama, configurar directamente sin bind (temperatura no es compatible)
+        ollama_models_list = ['llama3', 'deepseek-coder', 'phi3', 'gemma:2b']
+        
+        if model_name in ollama_models_list:
+            # Para modelos de Ollama, configurar directamente sin bind (temperatura no es compatible)
             simple_chains[model_name] = simple_chat_prompt | model_instance | StrOutputParser()
         elif model_name == 'gemini-1.5-flash':
             # Para Gemini, configurar temperatura usando bind

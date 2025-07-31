@@ -17,7 +17,7 @@
                 <i class="fas fa-robot me-3"></i>
                 Agente de IA
             </h1>
-            <p class="lead text-muted">Asistente inteligente multi-modelo con Gemini y Llama3</p>
+            <p class="lead text-muted">Asistente inteligente multi-modelo con Gemini, Llama3, DeepSeek, Phi-3 y Gemma</p>
         </header>
 
         <div class="row justify-content-center">
@@ -38,9 +38,15 @@
                                     {% for modelo in modelos_disponibles %}
                                     <option value="{{ modelo }}">
                                         {% if modelo == 'gemini-1.5-flash' %}
-                                            🧠 Google Gemini
+                                            🧠 Google Gemini 1.5 Flash
                                         {% elif modelo == 'llama3' %}
-                                            🦙 Llama3 (Local)
+                                            🦙 Llama3 8B (Local)
+                                        {% elif modelo == 'deepseek-coder' %}
+                                            💻 DeepSeek Coder (Local)
+                                        {% elif modelo == 'phi3' %}
+                                            🔬 Microsoft Phi-3 (Local)
+                                        {% elif modelo == 'gemma:2b' %}
+                                            💎 Google Gemma 2B (Local)
                                         {% else %}
                                             🤖 {{ modelo|title }}
                                         {% endif %}
