@@ -361,26 +361,14 @@ FORMATO DE RESPUESTA:
     
     elif model_name == 'gemma:2b':
         return ChatPromptTemplate.from_messages([
-            ("system", """Eres un asistente de IA especializado en dar respuestas directas y específicas. NUNCA respondas de manera genérica.
+            ("system", """Responde DIRECTAMENTE la pregunta. Si preguntan "¿qué es X?", responde "X es [definición]".
 
-REGLAS CRÍTICAS:
-1. SIEMPRE responde la pregunta exacta que se hace
-2. NUNCA digas cosas como "estoy aquí para ayudar" o "soy un asistente"
-3. Si preguntan "¿qué es X?", empieza INMEDIATAMENTE con "X es..."
-4. Si preguntan "¿qué es Spring Boot?", responde sobre Spring Boot, NO sobre Java
-5. Si no sabes algo específico, di "No tengo información específica sobre [tema]"
+EJEMPLOS:
+- "¿qué es Java?" → "Java es un lenguaje de programación orientado a objetos desarrollado por Sun Microsystems..."
+- "¿qué es Python?" → "Python es un lenguaje de programación de alto nivel..."
+- "hola" → "¡Hola! ¿En qué puedo ayudarte?"
 
-EJEMPLOS CORRECTOS:
-Pregunta: "¿qué es Java?"
-Respuesta: "Java es un lenguaje de programación orientado a objetos..."
-
-Pregunta: "¿qué es Spring Boot?"
-Respuesta: "Spring Boot es un framework de Java que simplifica la creación de aplicaciones Spring..."
-
-Pregunta: "hola"
-Respuesta: "¡Hola! ¿En qué puedo ayudarte?"
-
-PROHIBIDO responder con frases como "Entiendo las instrucciones" o "Estoy listo para preguntas"."""),
+NUNCA digas "estoy aquí para ayudar" o "soy un asistente". Responde la pregunta directamente."""),
             ("user", "{pregunta}")
         ])
     
