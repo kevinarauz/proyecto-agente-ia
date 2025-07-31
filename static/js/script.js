@@ -444,9 +444,24 @@ function setLoading(isLoading, step = null, progress = 0) {
         preguntaInput.disabled = true;
         preguntaInput.blur();
         
+        // Determinar el modo actual para mostrar mensajes apropiados
+        const modoSelect = document.getElementById('modoSelect');
+        const permitirInternet = document.getElementById('permitirInternet');
+        const modo = modoSelect ? modoSelect.value : 'simple';
+        const internetHabilitado = permitirInternet ? permitirInternet.checked : false;
+        
         // Reiniciar elementos del modal
         document.getElementById('loadingTitle').textContent = 'Procesando tu pregunta...';
-        document.getElementById('loadingDescription').textContent = 'El agente está trabajando...';
+        
+        // Ajustar descripción según el modo
+        if (modo === 'agente' && internetHabilitado) {
+            document.getElementById('loadingDescription').textContent = 'El agente está trabajando con búsqueda web...';
+        } else if (modo === 'busqueda_rapida' && internetHabilitado) {
+            document.getElementById('loadingDescription').textContent = 'Realizando búsqueda rápida en web...';
+        } else {
+            document.getElementById('loadingDescription').textContent = 'Procesando con conocimiento base...';
+        }
+        
         document.getElementById('loadingProgress').style.width = '0%';
         document.getElementById('timerValue').textContent = '0';
         document.getElementById('loadingSteps').style.display = 'none';
@@ -457,10 +472,20 @@ function setLoading(isLoading, step = null, progress = 0) {
         
         loadingModal.show();
         
-        // Simular progreso para mejor UX
-        setTimeout(() => updateLoadingProgress(20, 'Conectando con el agente...'), 500);
-        setTimeout(() => updateLoadingProgress(40, 'Analizando la pregunta...'), 1000);
-        setTimeout(() => updateLoadingProgress(60, 'Ejecutando búsqueda web...'), 2000);
+        // Simular progreso para mejor UX con mensajes específicos
+        if (modo === 'agente' && internetHabilitado) {
+            setTimeout(() => updateLoadingProgress(20, 'Conectando con el agente...'), 500);
+            setTimeout(() => updateLoadingProgress(40, 'Analizando la pregunta...'), 1000);
+            setTimeout(() => updateLoadingProgress(60, 'Ejecutando búsqueda web...'), 2000);
+        } else if (modo === 'busqueda_rapida' && internetHabilitado) {
+            setTimeout(() => updateLoadingProgress(30, 'Preparando búsqueda rápida...'), 500);
+            setTimeout(() => updateLoadingProgress(60, 'Consultando fuentes web...'), 1000);
+            setTimeout(() => updateLoadingProgress(80, 'Procesando resultados...'), 1500);
+        } else {
+            setTimeout(() => updateLoadingProgress(20, 'Conectando con el modelo...'), 500);
+            setTimeout(() => updateLoadingProgress(40, 'Analizando la pregunta...'), 1000);
+            setTimeout(() => updateLoadingProgress(60, 'Procesando respuesta...'), 2000);
+        }
         
     } else {
         clearInterval(loadingTimer);

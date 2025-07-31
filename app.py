@@ -459,8 +459,9 @@ def chat() -> Union[Response, Tuple[Response, int]]:
         pregunta = data.get('pregunta', '')
         modo = data.get('modo', 'simple')  # 'simple' o 'agente'
         modelo_seleccionado = data.get('modelo', available_models[0] if available_models else 'llama3')
+        permitir_internet = data.get('permitir_internet', True)  # Por defecto permitir internet
         
-        print(f"🔍 DEBUG: pregunta='{pregunta}', modo='{modo}', modelo='{modelo_seleccionado}'")
+        print(f"🔍 DEBUG: pregunta='{pregunta}', modo='{modo}', modelo='{modelo_seleccionado}', internet={permitir_internet}")
         
         if not pregunta:
             return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
@@ -472,7 +473,12 @@ def chat() -> Union[Response, Tuple[Response, int]]:
         if modelo is None:
             return jsonify({'error': 'No hay modelos disponibles'}), 500
 
-        if modo == 'agente' and modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
+        # Forzar modo simple si internet está deshabilitado y se intenta usar modos que requieren web
+        if not permitir_internet and modo in ['agente', 'busqueda_rapida']:
+            print(f"🔍 DEBUG: Forzando modo simple porque internet está deshabilitado")
+            modo = 'simple'
+
+        if modo == 'agente' and permitir_internet and modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
             # Usar el agente para preguntas que puedan requerir búsqueda web
             try:
                 tiempo_inicio = time.time()
@@ -534,7 +540,8 @@ def chat() -> Union[Response, Tuple[Response, int]]:
                         'busquedas': busquedas_count,
                         'timestamp': time.time(),
                         'timestamp_inicio': tiempo_inicio,
-                        'timestamp_fin': tiempo_fin
+                        'timestamp_fin': tiempo_fin,
+                        'internetHabilitado': permitir_internet
                     }
                 })
             except Exception as e:
@@ -555,7 +562,12 @@ def chat() -> Union[Response, Tuple[Response, int]]:
                     return jsonify({
                         'respuesta': f"{fallback_msg}{respuesta}",
                         'modo': 'simple_fallback',
-                        'modelo_usado': modelo_seleccionado
+                        'modelo_usado': modelo_seleccionado,
+                        'metadata': {
+                            'internetHabilitado': permitir_internet,
+                            'iteraciones': 0,
+                            'busquedas': 0
+                        }
                     })
                 else:
                     return jsonify({'error': f'Modelo {modelo_seleccionado} no disponible para fallback'}), 500
@@ -577,7 +589,10 @@ def chat() -> Union[Response, Tuple[Response, int]]:
                     'modelo_usado': modelo_seleccionado,
                     'metadata': {
                         'duracion': duracion,
-                        'timestamp': time.time()
+                        'timestamp': time.time(),
+                        'internetHabilitado': permitir_internet,
+                        'iteraciones': 0,
+                        'busquedas': 0
                     }
                 })
             else:
