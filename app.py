@@ -316,28 +316,126 @@ for model_name, model_instance in models.items():
 
 # También configurar un chat simple sin agente para preguntas básicas
 simple_chat_prompt = ChatPromptTemplate.from_messages([
-    ("system", "Eres un asistente útil y amigable. Responde de manera clara y concisa en español. Siempre mantén un tono profesional pero cercano."),
+    ("system", """Eres un asistente de IA especializado y conocedor. Tu trabajo es proporcionar respuestas directas, precisas y útiles en español.
+
+REGLAS IMPORTANTES:
+1. Responde DIRECTAMENTE a la pregunta formulada
+2. Proporciona información específica y detallada
+3. Si te preguntan "¿qué es X?", explica qué es X de manera clara y completa
+4. Si te preguntan sobre conceptos técnicos, da definiciones precisas
+5. Mantén un tono profesional pero accesible
+6. No digas solo "estoy aquí para ayudar" - da la respuesta específica
+
+EJEMPLOS:
+- Si preguntan "¿qué es Java?" → Explica que Java es un lenguaje de programación
+- Si preguntan "¿qué es Python?" → Explica que Python es un lenguaje de programación
+- Si preguntan "¿qué es HTML?" → Explica que HTML es un lenguaje de marcado
+
+Siempre proporciona información útil y específica."""),
     ("user", "{pregunta}")
 ])
+
+# Crear prompts específicos para diferentes modelos
+def crear_prompt_para_modelo(model_name: str) -> ChatPromptTemplate:
+    """Crea un prompt optimizado según el modelo específico"""
+    
+    if model_name == 'deepseek-coder':
+        return ChatPromptTemplate.from_messages([
+            ("system", """Eres DeepSeek Coder, un asistente especializado en programación y desarrollo. Proporciona respuestas técnicas precisas y código cuando sea necesario.
+
+ESPECIALIDADES:
+- Explicar conceptos de programación
+- Proporcionar ejemplos de código
+- Debugging y resolución de problemas
+- Mejores prácticas de desarrollo
+
+FORMATO DE RESPUESTA:
+- Respuestas directas y técnicas
+- Incluye ejemplos de código cuando sea relevante
+- Explica conceptos paso a paso
+- Menciona ventajas y desventajas cuando sea apropiado"""),
+            ("user", "{pregunta}")
+        ])
+    
+    elif model_name == 'gemma:2b':
+        return ChatPromptTemplate.from_messages([
+            ("system", """Eres un asistente de IA compacto pero muy efectivo. Proporciona respuestas claras, directas y bien estructuradas.
+
+INSTRUCCIONES ESPECÍFICAS:
+1. Ve directo al punto - no uses frases de relleno como "estoy aquí para ayudar"
+2. Si preguntan "¿qué es X?", responde: "X es [definición clara y específica]"
+3. Estructura tus respuestas de manera lógica
+4. Usa ejemplos concretos cuando sea útil
+5. Mantén un tono informativo pero accesible
+
+EJEMPLO DE BUENA RESPUESTA:
+Pregunta: "¿qué es Java?"
+Respuesta: "Java es un lenguaje de programación orientado a objetos, desarrollado por Sun Microsystems. Es multiplataforma, lo que significa que el código puede ejecutarse en diferentes sistemas operativos. Se usa principalmente para desarrollo de aplicaciones empresariales, aplicaciones móviles Android, y aplicaciones web."
+
+NO hagas respuestas vagas o genéricas."""),
+            ("user", "{pregunta}")
+        ])
+    
+    elif model_name == 'phi3':
+        return ChatPromptTemplate.from_messages([
+            ("system", """Eres Microsoft Phi-3, un modelo compacto pero potente diseñado para respuestas rápidas y precisas.
+
+CARACTERÍSTICAS:
+- Respuestas concisas pero completas
+- Enfoque en eficiencia y claridad
+- Proporciona información práctica y útil
+- Evita redundancias y texto innecesario
+
+FORMATO:
+1. Respuesta directa a la pregunta
+2. Información clave en 2-3 puntos
+3. Ejemplo o aplicación práctica si es relevante"""),
+            ("user", "{pregunta}")
+        ])
+    
+    else:
+        # Prompt por defecto para Llama3 y Gemini
+        return ChatPromptTemplate.from_messages([
+            ("system", """Eres un asistente de IA especializado y conocedor. Tu trabajo es proporcionar respuestas directas, precisas y útiles en español.
+
+REGLAS IMPORTANTES:
+1. Responde DIRECTAMENTE a la pregunta formulada
+2. Proporciona información específica y detallada
+3. Si te preguntan "¿qué es X?", explica qué es X de manera clara y completa
+4. Si te preguntan sobre conceptos técnicos, da definiciones precisas
+5. Mantén un tono profesional pero accesible
+6. No digas solo "estoy aquí para ayudar" - da la respuesta específica
+
+EJEMPLOS:
+- Si preguntan "¿qué es Java?" → Explica que Java es un lenguaje de programación
+- Si preguntan "¿qué es Python?" → Explica que Python es un lenguaje de programación
+- Si preguntan "¿qué es HTML?" → Explica que HTML es un lenguaje de marcado
+
+Siempre proporciona información útil y específica."""),
+            ("user", "{pregunta}")
+        ])
 
 simple_chains = {}
 for model_name, model_instance in models.items():
     if model_instance is not None:
+        # Obtener prompt personalizado para cada modelo
+        model_prompt = crear_prompt_para_modelo(model_name)
+        
         # Configurar chain con temperatura si es posible
         ollama_models_list = ['llama3', 'deepseek-coder', 'phi3', 'gemma:2b']
         
         if model_name in ollama_models_list:
             # Para modelos de Ollama, configurar directamente sin bind (temperatura no es compatible)
-            simple_chains[model_name] = simple_chat_prompt | model_instance | StrOutputParser()
+            simple_chains[model_name] = model_prompt | model_instance | StrOutputParser()
         elif model_name == 'gemini-1.5-flash':
             # Para Gemini, configurar temperatura usando bind
             configured_model = model_instance.bind(temperature=Config.DEFAULT_TEMPERATURE)
-            simple_chains[model_name] = simple_chat_prompt | configured_model | StrOutputParser()
+            simple_chains[model_name] = model_prompt | configured_model | StrOutputParser()
         else:
             # Fallback sin temperatura específica
-            simple_chains[model_name] = simple_chat_prompt | model_instance | StrOutputParser()
+            simple_chains[model_name] = model_prompt | model_instance | StrOutputParser()
         
-        print(f"✅ Chat simple {model_name} configurado")
+        print(f"✅ Chat simple {model_name} configurado con prompt personalizado")
 
 @app.route('/')
 def index() -> str:
