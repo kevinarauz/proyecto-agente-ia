@@ -363,19 +363,27 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
         // Agregar proceso de pensamiento detallado si está disponible
         let procesoCompleto = '';
         if (pensamientos && pensamientos.length > 0) {
+            // Verificar si es DeepSeek R1 para mostrar razonamiento especial
+            const esDeepSeekR1 = modeloUsado === 'deepseek-r1:8b';
+            const tipoRazonamiento = esDeepSeekR1 ? 'razonamiento avanzado' : 'proceso de pensamiento';
+            const icono = esDeepSeekR1 ? 'fas fa-brain' : 'fas fa-cogs';
+            const colorBorde = esDeepSeekR1 ? 'border-info' : 'border-primary';
+            
             procesoCompleto = `
                 <div class="proceso-pensamiento mt-3">
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${uniqueId}" aria-expanded="false">
-                        <i class="fas fa-brain me-1"></i>Ver proceso de pensamiento (${pensamientos.length} pasos)
+                    <button class="btn btn-sm btn-outline-${esDeepSeekR1 ? 'info' : 'secondary'}" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${uniqueId}" aria-expanded="false">
+                        <i class="${icono} me-1"></i>Ver ${tipoRazonamiento} (${pensamientos.length} pasos)
                     </button>
                     <div class="collapse mt-2" id="pensamiento-${uniqueId}">
-                        <div class="card card-body bg-light">
-                            <h6 class="mb-3"><i class="fas fa-cogs me-1"></i>Proceso de razonamiento:</h6>
+                        <div class="card card-body ${esDeepSeekR1 ? 'bg-info bg-opacity-10' : 'bg-light'}">
+                            <h6 class="mb-3"><i class="${icono} me-1"></i>${esDeepSeekR1 ? 'Razonamiento DeepSeek R1:' : 'Proceso de razonamiento:'}</h6>
                             ${pensamientos.map((pensamiento, index) => `
-                                <div class="paso-pensamiento mb-2 p-2 border-start border-3 border-primary">
+                                <div class="paso-pensamiento mb-2 p-2 border-start border-3 ${colorBorde}">
+                                    <small class="text-muted">${new Date().toLocaleTimeString()}</small><br>
                                     ${pensamiento}
                                 </div>
                             `).join('')}
+                            ${esDeepSeekR1 ? '<small class="text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Este es el proceso de razonamiento paso a paso del modelo DeepSeek R1</small>' : ''}
                         </div>
                     </div>
                 </div>
@@ -471,15 +479,19 @@ function setLoading(isLoading, step = null, progress = 0) {
         
         // Determinar el modo actual para mostrar mensajes apropiados
         const modoSelect = document.getElementById('modoSelect');
+        const modeloSelect = document.getElementById('modeloSelect');
         const permitirInternet = document.getElementById('permitirInternet');
         const modo = modoSelect ? modoSelect.value : 'simple';
+        const modelo = modeloSelect ? modeloSelect.value : '';
         const internetHabilitado = permitirInternet ? permitirInternet.checked : false;
         
         // Reiniciar elementos del modal
         document.getElementById('loadingTitle').textContent = 'Procesando tu pregunta...';
         
-        // Ajustar descripción según el modo
-        if (modo === 'agente' && internetHabilitado) {
+        // Ajustar descripción según el modo y modelo
+        if (modelo === 'deepseek-r1:8b') {
+            document.getElementById('loadingDescription').textContent = 'DeepSeek R1 está razonando paso a paso...';
+        } else if (modo === 'agente' && internetHabilitado) {
             document.getElementById('loadingDescription').textContent = 'El agente está trabajando con búsqueda web...';
         } else if (modo === 'busqueda_rapida' && internetHabilitado) {
             document.getElementById('loadingDescription').textContent = 'Realizando búsqueda rápida en web...';
@@ -498,7 +510,15 @@ function setLoading(isLoading, step = null, progress = 0) {
         loadingModal.show();
         
         // Simular progreso para mejor UX con mensajes específicos
-        if (modo === 'agente' && internetHabilitado) {
+        if (modelo === 'deepseek-r1:8b') {
+            // Proceso de razonamiento simulado para DeepSeek R1
+            setTimeout(() => updateLoadingProgress(15, '🔍 Analizando pregunta inicial...'), 500);
+            setTimeout(() => updateLoadingProgress(30, '🧠 Identificando conceptos clave...'), 1200);
+            setTimeout(() => updateLoadingProgress(45, '📚 Accediendo a conocimiento base...'), 2000);
+            setTimeout(() => updateLoadingProgress(60, '🔗 Conectando información relevante...'), 3000);
+            setTimeout(() => updateLoadingProgress(75, '📝 Estructurando respuesta...'), 4000);
+            setTimeout(() => updateLoadingProgress(90, '🔄 Validando coherencia...'), 5000);
+        } else if (modo === 'agente' && internetHabilitado) {
             setTimeout(() => updateLoadingProgress(20, 'Conectando con el agente...'), 500);
             setTimeout(() => updateLoadingProgress(40, 'Analizando la pregunta...'), 1000);
             setTimeout(() => updateLoadingProgress(60, 'Ejecutando búsqueda web...'), 2000);

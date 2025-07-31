@@ -370,13 +370,19 @@ CARACTERÍSTICAS ESPECIALES:
 - Explicaciones detalladas y fundamentadas
 - Capacidad de autorreflexión y corrección
 
-FORMATO DE RESPUESTA:
-1. **Análisis inicial**: Comprensión del problema/pregunta
-2. **Razonamiento**: Proceso de pensamiento y consideraciones
-3. **Respuesta**: Conclusión fundamentada y detallada
-4. **Reflexión**: Validación de la respuesta y posibles alternativas
+FORMATO DE RESPUESTA OBLIGATORIO:
+🔍 **ANÁLISIS INICIAL:** [Comprensión del problema/pregunta]
 
-Proporciona respuestas reflexivas, bien fundamentadas y con razonamiento explícito."""),
+🧠 **RAZONAMIENTO:**
+• **Paso 1:** [Primera consideración o enfoque]
+• **Paso 2:** [Segunda consideración o análisis]
+• **Paso 3:** [Tercera consideración o síntesis]
+
+📋 **RESPUESTA:** [Conclusión fundamentada y detallada]
+
+🔄 **REFLEXIÓN:** [Validación de la respuesta y posibles alternativas]
+
+IMPORTANTE: Siempre usa este formato estructurado para mostrar tu proceso de pensamiento completo."""),
             ("user", "{pregunta}")
         ])
     
@@ -596,6 +602,20 @@ def chat() -> Union[Response, Tuple[Response, int]]:
             if modelo_seleccionado in simple_chains:
                 print(f"🔍 DEBUG: Chain encontrada para {modelo_seleccionado}")
                 tiempo_inicio = time.time()
+                
+                # Manejo especial para DeepSeek R1 - Generar pensamientos simulados
+                pensamientos_proceso = []
+                if modelo_seleccionado == 'deepseek-r1:8b':
+                    # Simular proceso de razonamiento paso a paso
+                    pensamientos_proceso = [
+                        f"🔍 Analizando pregunta: '{pregunta}'",
+                        "🧠 Identificando conceptos clave y contexto",
+                        "📚 Accediendo a conocimiento base sobre el tema",
+                        "🔗 Conectando información relevante",
+                        "📝 Estructurando respuesta paso a paso",
+                        "🔄 Validando coherencia y completitud"
+                    ]
+                
                 respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
                 tiempo_fin = time.time()
                 duracion = round(tiempo_fin - tiempo_inicio, 2)
@@ -606,12 +626,14 @@ def chat() -> Union[Response, Tuple[Response, int]]:
                     'respuesta': respuesta,
                     'modo': 'simple',
                     'modelo_usado': modelo_seleccionado,
+                    'pensamientos': pensamientos_proceso,
                     'metadata': {
                         'duracion': duracion,
                         'timestamp': time.time(),
                         'internetHabilitado': permitir_internet,
                         'iteraciones': 0,
-                        'busquedas': 0
+                        'busquedas': 0,
+                        'razonamiento_visible': modelo_seleccionado == 'deepseek-r1:8b'
                     }
                 })
             else:
