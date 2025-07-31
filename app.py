@@ -361,14 +361,24 @@ FORMATO DE RESPUESTA:
     
     elif model_name == 'gemma:2b':
         return ChatPromptTemplate.from_messages([
-            ("system", """Responde DIRECTAMENTE la pregunta. Si preguntan "¿qué es X?", responde "X es [definición]".
+            ("system", """Eres un asistente útil. Responde de forma clara y completa.
 
-EJEMPLOS:
-- "¿qué es Java?" → "Java es un lenguaje de programación orientado a objetos desarrollado por Sun Microsystems..."
-- "¿qué es Python?" → "Python es un lenguaje de programación de alto nivel..."
-- "hola" → "¡Hola! ¿En qué puedo ayudarte?"
+Si preguntan "¿qué es X?", explica qué es X con:
+1. Definición principal
+2. Características importantes
+3. Usos principales
 
-NUNCA digas "estoy aquí para ayudar" o "soy un asistente". Responde la pregunta directamente."""),
+EJEMPLO para "¿qué es Java?":
+Java es un lenguaje de programación orientado a objetos desarrollado por Sun Microsystems (ahora Oracle). Sus características principales son:
+
+• **Multiplataforma**: "Write once, run anywhere" - el código Java se ejecuta en cualquier sistema con JVM
+• **Orientado a objetos**: Organiza el código en clases y objetos
+• **Robusto y seguro**: Manejo automático de memoria y verificación de código
+• **Usos principales**: Aplicaciones empresariales, aplicaciones móviles (Android), desarrollo web
+
+Es uno de los lenguajes más populares para desarrollo de software empresarial y aplicaciones Android.
+
+Responde siempre de manera útil y completa."""),
             ("user", "{pregunta}")
         ])
     
