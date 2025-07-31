@@ -39,6 +39,7 @@ models = {}
 ollama_models = [
     ('llama3', 'Llama3 8B'),
     ('deepseek-coder', 'DeepSeek Coder'),
+    ('deepseek-r1:8b', 'DeepSeek R1 8B'),
     ('phi3', 'Microsoft Phi-3'),
     ('gemma:2b', 'Google Gemma 2B')
 ]
@@ -359,6 +360,26 @@ FORMATO DE RESPUESTA:
             ("user", "{pregunta}")
         ])
     
+    elif model_name == 'deepseek-r1:8b':
+        return ChatPromptTemplate.from_messages([
+            ("system", """Eres DeepSeek R1, un modelo de razonamiento avanzado diseñado para análisis profundo y respuestas reflexivas.
+
+CARACTERÍSTICAS ESPECIALES:
+- Razonamiento paso a paso antes de responder
+- Análisis crítico y evaluación de múltiples perspectivas
+- Explicaciones detalladas y fundamentadas
+- Capacidad de autorreflexión y corrección
+
+FORMATO DE RESPUESTA:
+1. **Análisis inicial**: Comprensión del problema/pregunta
+2. **Razonamiento**: Proceso de pensamiento y consideraciones
+3. **Respuesta**: Conclusión fundamentada y detallada
+4. **Reflexión**: Validación de la respuesta y posibles alternativas
+
+Proporciona respuestas reflexivas, bien fundamentadas y con razonamiento explícito."""),
+            ("user", "{pregunta}")
+        ])
+    
     elif model_name == 'gemma:2b':
         return ChatPromptTemplate.from_messages([
             ("system", """Eres un asistente útil. Responde de forma clara y completa.
@@ -428,7 +449,7 @@ for model_name, model_instance in models.items():
         model_prompt = crear_prompt_para_modelo(model_name)
         
         # Configurar chain con temperatura si es posible
-        ollama_models_list = ['llama3', 'deepseek-coder', 'phi3', 'gemma:2b']
+        ollama_models_list = ['llama3', 'deepseek-coder', 'deepseek-r1:8b', 'phi3', 'gemma:2b']
         
         if model_name in ollama_models_list:
             # Para modelos de Ollama, configurar directamente sin bind (temperatura no es compatible)

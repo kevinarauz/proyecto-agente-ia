@@ -17,7 +17,7 @@
                 <i class="fas fa-robot me-3"></i>
                 Agente de IA
             </h1>
-            <p class="lead text-muted">Asistente inteligente multi-modelo con Gemini, Llama3, DeepSeek, Phi-3 y Gemma</p>
+            <p class="lead text-muted">Asistente inteligente multi-modelo con Gemini, Llama3, DeepSeek Coder, DeepSeek R1, Phi-3 y Gemma</p>
         </header>
 
         <div class="row justify-content-center">
@@ -43,6 +43,8 @@
                                             🦙 Llama3 8B (Local)
                                         {% elif modelo == 'deepseek-coder' %}
                                             💻 DeepSeek Coder (Local)
+                                        {% elif modelo == 'deepseek-r1:8b' %}
+                                            🧮 DeepSeek R1 8B (Local)
                                         {% elif modelo == 'phi3' %}
                                             🔬 Microsoft Phi-3 (Local)
                                         {% elif modelo == 'gemma:2b' %}
@@ -63,14 +65,18 @@
                                 </select>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label">Configuración:</label>
+                                <label class="form-label">Configuración de Red:</label>
                                 <div class="d-flex flex-column gap-2">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="permitirInternet" checked>
-                                        <label class="form-check-label" for="permitirInternet">
+                                        <label class="form-check-label text-success" for="permitirInternet" id="labelInternet">
                                             <i class="fas fa-wifi me-1"></i>
-                                            <span id="labelInternet">Permitir búsqueda web</span>
+                                            Permitir búsqueda web
                                         </label>
+                                    </div>
+                                    <div class="alert alert-info py-1 px-2 mb-0" style="font-size: 0.8em;" id="estadoWeb">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <span id="estadoWebTexto">Web habilitada - Puede buscar información actual</span>
                                     </div>
                                     <div class="d-flex gap-1">
                                         <button class="btn btn-outline-warning btn-sm" onclick="demoGeneral()">

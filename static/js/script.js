@@ -58,6 +58,9 @@ function actualizarMensajeBienvenida() {
         case 'deepseek-coder':
             mensaje = '¡Hola! Soy tu asistente de IA con DeepSeek Coder. Especializado en programación, código y desarrollo.';
             break;
+        case 'deepseek-r1:8b':
+            mensaje = '¡Hola! Soy tu asistente de IA con DeepSeek R1 8B. Modelo de razonamiento avanzado para análisis profundo.';
+            break;
         case 'phi3':
             mensaje = '¡Hola! Soy tu asistente de IA con Microsoft Phi-3. Modelo compacto y eficiente para respuestas rápidas.';
             break;
@@ -88,14 +91,32 @@ function actualizarMensajeBienvenida() {
 function manejarCambioInternet() {
     const permitirInternet = document.getElementById('permitirInternet');
     const labelInternet = document.getElementById('labelInternet');
+    const estadoWeb = document.getElementById('estadoWeb');
+    const estadoWebTexto = document.getElementById('estadoWebTexto');
     const modoSelect = document.getElementById('modoSelect');
     
     if (permitirInternet.checked) {
         labelInternet.innerHTML = '<i class="fas fa-wifi me-1"></i>Permitir búsqueda web';
         labelInternet.className = 'form-check-label text-success';
+        
+        if (estadoWeb) {
+            estadoWeb.className = 'alert alert-success py-1 px-2 mb-0';
+            estadoWeb.style.fontSize = '0.8em';
+        }
+        if (estadoWebTexto) {
+            estadoWebTexto.innerHTML = '<i class="fas fa-globe me-1"></i>Web habilitada - Puede buscar información actual';
+        }
     } else {
         labelInternet.innerHTML = '<i class="fas fa-wifi-slash me-1"></i>Solo conocimiento base';
         labelInternet.className = 'form-check-label text-warning';
+        
+        if (estadoWeb) {
+            estadoWeb.className = 'alert alert-warning py-1 px-2 mb-0';
+            estadoWeb.style.fontSize = '0.8em';
+        }
+        if (estadoWebTexto) {
+            estadoWebTexto.innerHTML = '<i class="fas fa-database me-1"></i>Solo base de datos - Sin acceso a internet';
+        }
         
         // Si está deshabilitado internet, forzar modo simple
         if (modoSelect.value !== 'simple') {
@@ -308,6 +329,8 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
                     return '<span class="modelo-badge">🦙 Llama3</span>';
                 case 'deepseek-coder':
                     return '<span class="modelo-badge">💻 DeepSeek</span>';
+                case 'deepseek-r1:8b':
+                    return '<span class="modelo-badge">🧮 DeepSeek R1</span>';
                 case 'phi3':
                     return '<span class="modelo-badge">🔬 Phi-3</span>';
                 case 'gemma:2b':
@@ -321,17 +344,19 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
         
         const modeloBadge = getModeloBadge(modeloUsado);
         
-        // Badge para indicar si se usó internet
+        // Badge para indicar si se usó internet - MEJORADO
         let internetBadge = '';
         if (metadata && metadata.hasOwnProperty('internetHabilitado')) {
             if (metadata.internetHabilitado) {
                 if (metadata.busquedas > 0) {
-                    internetBadge = '<span class="modo-badge" style="background-color: #17a2b8;">🌐 Web Activa</span>';
+                    internetBadge = '<span class="modo-badge" style="background-color: #28a745; color: white;">🌐 Web Usada</span>';
+                } else if (modo === 'agente' || modo === 'busqueda_rapida') {
+                    internetBadge = '<span class="modo-badge" style="background-color: #17a2b8; color: white;">🌐 Web Disponible</span>';
                 } else {
-                    internetBadge = '<span class="modo-badge" style="background-color: #6c757d;">🌐 Web Disponible</span>';
+                    internetBadge = '<span class="modo-badge" style="background-color: #6c757d; color: white;">🌐 Web Disponible</span>';
                 }
             } else {
-                internetBadge = '<span class="modo-badge" style="background-color: #ffc107; color: #212529;">📚 Solo Base</span>';
+                internetBadge = '<span class="modo-badge" style="background-color: #ffc107; color: #212529;">📚 Solo Base de Datos</span>';
             }
         }
         
