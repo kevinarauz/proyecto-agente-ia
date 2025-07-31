@@ -24,13 +24,53 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Event listeners
     document.getElementById('chatForm').addEventListener('submit', handleSubmit);
+    document.getElementById('modeloSelect').addEventListener('change', actualizarMensajeBienvenida);
     preguntaInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSubmit(e);
         }
     });
+    
+    // Actualizar mensaje inicial
+    actualizarMensajeBienvenida();
 });
+
+// Función para actualizar el mensaje de bienvenida según el modelo seleccionado
+function actualizarMensajeBienvenida() {
+    const modeloSelect = document.getElementById('modeloSelect');
+    const textoBienvenida = document.getElementById('textoBienvenida');
+    
+    if (!modeloSelect || !textoBienvenida) return;
+    
+    const modeloSeleccionado = modeloSelect.value;
+    const modeloTexto = modeloSelect.options[modeloSelect.selectedIndex].text;
+    
+    let mensaje = '';
+    
+    switch(modeloSeleccionado) {
+        case 'llama3':
+            mensaje = '¡Hola! Soy tu asistente de IA con Llama3 8B. Excelente para conversaciones generales y tareas diversas.';
+            break;
+        case 'deepseek-coder':
+            mensaje = '¡Hola! Soy tu asistente de IA con DeepSeek Coder. Especializado en programación, código y desarrollo.';
+            break;
+        case 'phi3':
+            mensaje = '¡Hola! Soy tu asistente de IA con Microsoft Phi-3. Modelo compacto y eficiente para respuestas rápidas.';
+            break;
+        case 'gemma:2b':
+            mensaje = '¡Hola! Soy tu asistente de IA con Google Gemma 2B. Modelo ligero y rápido para consultas directas.';
+            break;
+        case 'gemini-1.5-flash':
+            mensaje = '¡Hola! Soy tu asistente de IA con Google Gemini 1.5 Flash. Capacidades avanzadas para tareas complejas.';
+            break;
+        default:
+            mensaje = `¡Hola! Soy tu asistente de IA con ${modeloTexto}. Puedo responder preguntas y ayudarte con diversas tareas.`;
+    }
+    
+    mensaje += ' Puedo responder preguntas básicas o usar búsqueda web para información actual.';
+    textoBienvenida.textContent = mensaje;
+}
 
 // Manejar envío del formulario
 async function handleSubmit(e) {
