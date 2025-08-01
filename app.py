@@ -504,6 +504,70 @@ def chat() -> Union[Response, Tuple[Response, int]]:
             modo = 'simple'
 
         if modo == 'agente' and permitir_internet and modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
+            # Verificar si es una consulta de clima para usar endpoint especializado
+            if any(palabra in pregunta.lower() for palabra in ['clima', 'weather', 'temperatura', 'temp']):
+                print(f"🌤️ Detectada consulta de clima, usando endpoint especializado")
+                try:
+                    tiempo_inicio = time.time()
+                    
+                    # Extraer ciudad de la pregunta
+                    ciudad = 'Quito'  # Default
+                    if 'quito' in pregunta.lower():
+                        ciudad = 'Quito'
+                    elif 'guayaquil' in pregunta.lower():
+                        ciudad = 'Guayaquil'
+                    elif 'cuenca' in pregunta.lower():
+                        ciudad = 'Cuenca'
+                    
+                    # Obtener datos del clima directamente
+                    clima_data = obtener_clima_api(ciudad)
+                    tiempo_fin = time.time()
+                    duracion = round(tiempo_fin - tiempo_inicio, 2)
+                    
+                    if clima_data['success']:
+                        # Usar el modelo para generar una respuesta formateada
+                        if modelo_seleccionado in simple_chains:
+                            prompt_clima = f"""La consulta del usuario es: "{pregunta}"
+
+Los datos actuales del clima en {ciudad} son:
+- Temperatura: {clima_data['data']['temperatura']}°C
+- Condiciones: {clima_data['data']['descripcion']}
+- Humedad: {clima_data['data']['humedad']}%
+- Sensación térmica: {clima_data['data']['sensacion_termica']}°C
+- Viento: {clima_data['data']['velocidad_viento']} km/h ({clima_data['data']['direccion_viento']})
+- Hora de consulta: {clima_data['data']['hora_consulta']}
+
+Responde de manera clara y útil con estos datos actuales."""
+                            
+                            respuesta_formateada = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_clima})
+                            
+                            return jsonify({
+                                'respuesta': respuesta_formateada,
+                                'modo': 'clima_directo_agente',
+                                'modelo_usado': modelo_seleccionado,
+                                'pensamientos': [
+                                    f"🌤️ Detectada consulta sobre clima en {ciudad}",
+                                    "🔍 Consultando API meteorológica en tiempo real",
+                                    f"📊 Datos obtenidos: {clima_data['data']['temperatura']}°C, {clima_data['data']['descripcion']}",
+                                    "🧠 Procesando respuesta personalizada"
+                                ],
+                                'metadata': {
+                                    'duracion': duracion,
+                                    'iteraciones': 1,
+                                    'busquedas': 1,
+                                    'timestamp': time.time(),
+                                    'timestamp_inicio': tiempo_inicio,
+                                    'timestamp_fin': tiempo_fin,
+                                    'internetHabilitado': permitir_internet,
+                                    'tipo_consulta': 'clima_optimizada'
+                                }
+                            })
+                    
+                except Exception as e:
+                    print(f"⚠️ Error en consulta de clima optimizada: {e}")
+                    # Fallback al agente normal
+                    pass
+            
             # Usar el agente para preguntas que puedan requerir búsqueda web
             try:
                 tiempo_inicio = time.time()
@@ -908,6 +972,111 @@ def clima_directo() -> Union[Response, Tuple[Response, int]]:
                 'modo': 'clima_basico',
                 'modelo_usado': 'ninguno',
                 'fuente': 'Recomendaciones estáticas'
+            })
+            
+    except Exception as e:
+        return jsonify({'error': f'Error en consulta de clima: {str(e)}'}), 500
+
+@app.route('/clima-actual', methods=['POST'])
+def clima_actual() -> Union[Response, Tuple[Response, int]]:
+    """Endpoint rápido y optimizado para consultas de clima actual"""
+    try:
+        data = request.get_json()
+        pregunta = data.get('pregunta', '')
+        modelo_seleccionado = data.get('modelo', available_models[0] if available_models else 'llama3')
+        
+        if not pregunta:
+            return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
+        
+        # Extraer ciudad de la pregunta
+        ciudad = 'Quito'  # Default
+        pregunta_lower = pregunta.lower()
+        
+        if 'quito' in pregunta_lower:
+            ciudad = 'Quito'
+        elif 'guayaquil' in pregunta_lower:
+            ciudad = 'Guayaquil'
+        elif 'cuenca' in pregunta_lower:
+            ciudad = 'Cuenca'
+        elif 'new york' in pregunta_lower or 'nueva york' in pregunta_lower:
+            ciudad = 'New York'
+        elif 'madrid' in pregunta_lower:
+            ciudad = 'Madrid'
+        elif 'london' in pregunta_lower or 'londres' in pregunta_lower:
+            ciudad = 'London'
+        
+        print(f"🌤️ Consulta rápida de clima para {ciudad}")
+        tiempo_inicio = time.time()
+        
+        # Obtener datos del clima
+        clima_data = obtener_clima_api(ciudad)
+        
+        if clima_data['success']:
+            data_clima = clima_data['data']
+            
+            # Si tenemos un modelo disponible, usarlo para formatear la respuesta
+            if modelo_seleccionado in simple_chains:
+                prompt_clima = f"""El usuario pregunta: "{pregunta}"
+
+Datos meteorológicos ACTUALES para {ciudad}:
+🌡️ Temperatura: {data_clima['temperatura']}°C
+🌡️ Sensación térmica: {data_clima['sensacion_termica']}°C
+☁️ Condiciones: {data_clima['descripcion']}
+💧 Humedad: {data_clima['humedad']}%
+💨 Viento: {data_clima['velocidad_viento']} km/h hacia {data_clima['direccion_viento']}
+🕐 Última actualización: {data_clima['hora_consulta']}
+
+Responde de manera natural y útil con esta información actualizada."""
+                
+                respuesta_formateada = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_clima})
+            else:
+                # Respuesta básica sin modelo
+                respuesta_formateada = f"""🌤️ **Clima actual en {ciudad}**
+
+📊 **Condiciones actuales:**
+• **Temperatura:** {data_clima['temperatura']}°C
+• **Sensación térmica:** {data_clima['sensacion_termica']}°C
+• **Condiciones:** {data_clima['descripcion']}
+• **Humedad:** {data_clima['humedad']}%
+• **Viento:** {data_clima['velocidad_viento']} km/h ({data_clima['direccion_viento']})
+• **Última actualización:** {data_clima['hora_consulta']}
+
+*Datos obtenidos de API meteorológica en tiempo real*"""
+            
+            tiempo_fin = time.time()
+            duracion = round(tiempo_fin - tiempo_inicio, 2)
+            
+            return jsonify({
+                'respuesta': respuesta_formateada,
+                'modo': 'clima_actual',
+                'modelo_usado': modelo_seleccionado,
+                'pensamientos': [
+                    f"🌤️ Consultando clima actual en {ciudad}",
+                    "🔍 Conectando con API meteorológica wttr.in",
+                    f"📊 Datos obtenidos: {data_clima['temperatura']}°C, {data_clima['descripcion']}",
+                    "✅ Respuesta generada con datos en tiempo real"
+                ],
+                'metadata': {
+                    'duracion': duracion,
+                    'timestamp': time.time(),
+                    'internetHabilitado': True,
+                    'iteraciones': 1,
+                    'busquedas': 1,
+                    'ciudad': ciudad,
+                    'fuente_datos': 'wttr.in',
+                    'tipo_consulta': 'clima_rapido'
+                }
+            })
+        else:
+            return jsonify({
+                'respuesta': f"❌ No pude obtener el clima actual de {ciudad}.\n\nError: {clima_data['error']}\n\n🌤️ **Recomendaciones:**\n• Consulta weather.com\n• Usa Google Weather\n• Apps: AccuWeather, Weather Underground",
+                'modo': 'clima_error',
+                'modelo_usado': modelo_seleccionado,
+                'metadata': {
+                    'internetHabilitado': True,
+                    'error': clima_data['error'],
+                    'ciudad': ciudad
+                }
             })
             
     except Exception as e:

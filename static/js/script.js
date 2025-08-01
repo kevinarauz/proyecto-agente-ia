@@ -258,7 +258,19 @@ async function handleSubmit(e) {
 // Enviar pregunta a la API
 async function enviarPreguntaAPI(pregunta, modo, modelo, permitirInternet = true) {
     let endpoint = '/chat';
-    if (modo === 'busqueda_rapida') {
+    
+    // Detección inteligente de tipo de consulta
+    const preguntaLower = pregunta.toLowerCase();
+    
+    // Consultas de clima -> usar endpoint optimizado
+    if ((preguntaLower.includes('clima') || preguntaLower.includes('weather') || 
+         preguntaLower.includes('temperatura') || preguntaLower.includes('temp')) && 
+        permitirInternet) {
+        endpoint = '/clima-actual';
+        console.log('🌤️ Detectada consulta de clima, usando endpoint optimizado');
+    }
+    // Búsquedas rápidas
+    else if (modo === 'busqueda_rapida') {
         endpoint = '/busqueda-rapida';
     }
     
@@ -738,4 +750,72 @@ async function demoGeneral() {
     }
 }
 
+// Función para consulta rápida de clima
+async function consultarClimaRapido() {
+    try {
+        setLoading(true);
+        
+        Swal.fire({
+            title: 'Consultando clima...',
+            text: 'Obteniendo información meteorológica de Quito',
+            icon: 'info',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
 
+        const response = await fetch('/clima-actual', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                pregunta: '¿Cuál es el clima actual en Quito?',
+                modelo: document.getElementById('modeloSelect').value
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        Swal.close();
+        
+        // Agregar pregunta y respuesta al chat
+        agregarMensaje('¿Cuál es el clima actual en Quito?', 'usuario');
+        agregarMensaje(data.respuesta, 'ia', 'clima', data.modelo_usado, [], {
+            fuente: 'API Meteorológica',
+            tiempo_respuesta: '< 1s',
+            tipo_consulta: 'clima_rapido'
+        });
+
+        // Mostrar notificación de éxito
+        Swal.fire({
+            icon: 'success',
+            title: '🌤️ Clima Consultado',
+            text: 'Información meteorológica obtenida exitosamente.',
+            confirmButtonColor: '#007bff',
+            timer: 2000
+        });
+
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.close();
+        Swal.fire({
+            icon: 'error',
+            title: 'Error al consultar clima',
+            text: 'No se pudo obtener la información meteorológica.',
+            confirmButtonColor: '#007bff'
+        });
+    } finally {
+        setLoading(false);
+    }
+}
