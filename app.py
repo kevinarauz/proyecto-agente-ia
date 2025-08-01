@@ -30,6 +30,20 @@ load_dotenv()
 app = Flask(__name__)
 app.config.from_object(Config)
 
+def formatear_duracion(segundos):
+    """Convierte segundos a formato legible (minutos y segundos)"""
+    if segundos < 1:
+        return f"{round(segundos * 1000)}ms"
+    elif segundos < 60:
+        return f"{round(segundos, 1)}s"
+    else:
+        minutos = int(segundos // 60)
+        segundos_restantes = round(segundos % 60, 1)
+        if segundos_restantes == 0:
+            return f"{minutos}m"
+        else:
+            return f"{minutos}m {segundos_restantes}s"
+
 print("🤖 Configurando modelos de IA...")
 
 # Configurar modelos de IA
@@ -523,6 +537,7 @@ def chat() -> Union[Response, Tuple[Response, int]]:
                     clima_data = obtener_clima_api(ciudad)
                     tiempo_fin = time.time()
                     duracion = round(tiempo_fin - tiempo_inicio, 2)
+                    duracion_formateada = formatear_duracion(duracion)
                     
                     if clima_data['success']:
                         # Usar el modelo para generar una respuesta formateada
@@ -553,6 +568,7 @@ Responde de manera clara y útil con estos datos actuales."""
                                 ],
                                 'metadata': {
                                     'duracion': duracion,
+                                    'duracion_formateada': duracion_formateada,
                                     'iteraciones': 1,
                                     'busquedas': 1,
                                     'timestamp': time.time(),
@@ -577,8 +593,9 @@ Responde de manera clara y útil con estos datos actuales."""
                 respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
                 tiempo_fin = time.time()
                 duracion = round(tiempo_fin - tiempo_inicio, 2)
+                duracion_formateada = formatear_duracion(duracion)
                 
-                print(f"✅ Agente completado en {duracion}s")
+                print(f"✅ Agente completado en {duracion_formateada}")
                 
                 # Extraer pasos intermedios si están disponibles
                 pasos_intermedios = []
@@ -625,6 +642,7 @@ Responde de manera clara y útil con estos datos actuales."""
                     'pensamientos': pensamientos,
                     'metadata': {
                         'duracion': duracion,
+                        'duracion_formateada': duracion_formateada,
                         'iteraciones': len(pasos_intermedios),
                         'busquedas': busquedas_count,
                         'timestamp': time.time(),
@@ -683,8 +701,9 @@ Responde de manera clara y útil con estos datos actuales."""
                 respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
                 tiempo_fin = time.time()
                 duracion = round(tiempo_fin - tiempo_inicio, 2)
+                duracion_formateada = formatear_duracion(duracion)
                 
-                print(f"✅ Chat simple completado en {duracion}s")
+                print(f"✅ Chat simple completado en {duracion_formateada}")
                 
                 return jsonify({
                     'respuesta': respuesta,
@@ -693,6 +712,7 @@ Responde de manera clara y útil con estos datos actuales."""
                     'pensamientos': pensamientos_proceso,
                     'metadata': {
                         'duracion': duracion,
+                        'duracion_formateada': duracion_formateada,
                         'timestamp': time.time(),
                         'internetHabilitado': permitir_internet,
                         'iteraciones': 0,
@@ -1045,6 +1065,7 @@ Responde de manera natural y útil con esta información actualizada."""
             
             tiempo_fin = time.time()
             duracion = round(tiempo_fin - tiempo_inicio, 2)
+            duracion_formateada = formatear_duracion(duracion)
             
             return jsonify({
                 'respuesta': respuesta_formateada,
@@ -1058,6 +1079,7 @@ Responde de manera natural y útil con esta información actualizada."""
                 ],
                 'metadata': {
                     'duracion': duracion,
+                    'duracion_formateada': duracion_formateada,
                     'timestamp': time.time(),
                     'internetHabilitado': True,
                     'iteraciones': 1,

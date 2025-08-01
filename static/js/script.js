@@ -423,6 +423,7 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
         // Agregar metadata de tiempo y rendimiento
         let metadataInfo = '';
         if (metadata) {
+            const duracionTexto = metadata.duracion_formateada || `${metadata.duracion}s`;
             metadataInfo = `
                 <div class="metadata-info mt-2 p-2 bg-light rounded">
                     <div class="row text-muted small">
@@ -436,7 +437,7 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
                         </div>
                         <div class="col-md-4">
                             <i class="fas fa-stopwatch me-1"></i>
-                            Duración: ${metadata.duracion}s
+                            Duración: ${duracionTexto}
                         </div>
                     </div>
                     ${metadata.iteraciones !== undefined ? `
@@ -445,6 +446,12 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
                             Iteraciones: ${metadata.iteraciones} | 
                             <i class="fas fa-search me-1"></i>
                             Búsquedas: ${metadata.busquedas || 0}
+                        </div>
+                    ` : ''}
+                    ${metadata.tipo_consulta ? `
+                        <div class="mt-1 small text-muted">
+                            <i class="fas fa-tag me-1"></i>
+                            Tipo: ${metadata.tipo_consulta}
                         </div>
                     ` : ''}
                 </div>
@@ -791,11 +798,7 @@ async function consultarClimaRapido() {
         
         // Agregar pregunta y respuesta al chat
         agregarMensaje('¿Cuál es el clima actual en Quito?', 'usuario');
-        agregarMensaje(data.respuesta, 'ia', 'clima', data.modelo_usado, [], {
-            fuente: 'API Meteorológica',
-            tiempo_respuesta: '< 1s',
-            tipo_consulta: 'clima_rapido'
-        });
+        agregarMensaje(data.respuesta, 'ia', data.modo, data.modelo_usado, [], data.metadata, data.pensamientos || []);
 
         // Mostrar notificación de éxito
         Swal.fire({
