@@ -167,7 +167,32 @@ def busqueda_web_avanzada(query: str) -> str:
     except Exception as e:
         print(f"⚠️ DuckDuckGo falló: {e}")
     
-    # Método 2: API de búsqueda alternativa (usando scraping básico)
+    # Método 2: Para noticias específicas, usar términos más específicos
+    if any(palabra in query.lower() for palabra in ['noticias', 'news', 'hoy', 'today', 'actualidad']):
+        try:
+            # Buscar noticias más específicas
+            queries_noticias = [
+                "noticias tecnología inteligencia artificial hoy",
+                "noticias Ecuador últimas",
+                "breaking news today",
+                "noticias mundo actualidad"
+            ]
+            
+            for query_especifica in queries_noticias:
+                try:
+                    ddg_search = DuckDuckGoSearchRun()
+                    resultado = ddg_search.invoke(query_especifica)
+                    if resultado and len(resultado.strip()) > 30:
+                        resultados.append(f"[Noticias {query_especifica}] {resultado[:500]}...")
+                        print(f"✅ Noticias encontradas para: {query_especifica}")
+                        break  # Si encontramos algo, salir del loop
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"⚠️ Búsqueda de noticias específicas falló: {e}")
+    
+    # Método 3: API de búsqueda alternativa (usando scraping básico)
     try:
         # Usar una API pública de búsqueda o scraping básico
         url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
@@ -321,10 +346,11 @@ for model_name, model_instance in models.items():
                 agent=agent, 
                 tools=tools, 
                 verbose=True,
-                max_iterations=4,  # Reducido porque ahora es más eficiente
-                max_execution_time=20,  # Reducido
+                max_iterations=6,  # Incrementado para más análisis
+                max_execution_time=30,  # Incrementado para análisis detallado
                 handle_parsing_errors=True,
-                return_intermediate_steps=True
+                return_intermediate_steps=True,
+                early_stopping_method="generate"  # Permite generar respuesta parcial si llega al límite
             )
             print(f"✅ Agente {model_name} creado con herramientas avanzadas")
         except Exception as e:
@@ -652,6 +678,53 @@ Responde de manera clara y útil con estos datos actuales."""
                     print("ℹ️ No se encontraron pasos intermedios")
                     # Para consultas simples, agregar un pensamiento básico
                     pensamientos.append("💭 Procesando consulta directamente sin necesidad de búsquedas web")
+                
+                # Verificar si las búsquedas fallaron y generar respuesta de fallback inteligente
+                respuesta_output = respuesta_completa.get('output', '')
+                if busquedas_count > 0 and respuesta_output and "No good DuckDuckGo Search Result was found" in respuesta_output:
+                    print("⚠️ Búsquedas web fallaron, generando respuesta de fallback inteligente...")
+                    
+                    # Generar respuesta de fallback específica para noticias
+                    if any(palabra in pregunta.lower() for palabra in ['noticias', 'news', 'hoy', 'actualidad']):
+                        respuesta_completa['output'] = f"""📰 **Información sobre noticias del día**
+
+Lo siento, actualmente estoy experimentando dificultades para acceder a fuentes de noticias en tiempo real. Sin embargo, te puedo sugerir las mejores fuentes para mantenerte informado sobre las noticias de hoy:
+
+🌐 **Fuentes recomendadas de noticias:**
+• **Internacionales:** BBC News, CNN, Reuters, Associated Press
+• **Ecuador:** El Universo, El Comercio, Primicias, GK
+• **Tecnología:** TechCrunch, Wired, The Verge
+• **Deportes:** ESPN, Marca, Fox Sports
+
+🔍 **Para noticias específicas, te recomiendo:**
+1. Visitar directamente Google News
+2. Usar aplicaciones de noticias como Apple News o Google News
+3. Seguir cuentas verificadas en redes sociales
+4. Consultar sitios web oficiales de medios
+
+📱 **Tip:** Configura alertas de Google para temas específicos que te interesen.
+
+¿Hay algún tema específico de noticias sobre el que te gustaría que te ayude a encontrar información?"""
+
+                        pensamientos.append("🔄 Búsqueda web no disponible, proporcionando fuentes alternativas para noticias")
+                        pensamientos.append("💡 Sugiriendo medios confiables y métodos alternativos de búsqueda")
+                    else:
+                        # Para otras consultas que requieren información actualizada
+                        respuesta_completa['output'] = f"""🔍 **Dificultades para acceder a información en tiempo real**
+
+Actualmente no puedo acceder a información actualizada sobre "{pregunta}" debido a limitaciones en las herramientas de búsqueda web.
+
+💡 **Te sugiero:**
+1. Consultar directamente Google o Bing
+2. Visitar sitios web oficiales relacionados con tu consulta
+3. Usar aplicaciones especializadas
+4. Verificar redes sociales oficiales
+
+❓ **¿Puedo ayudarte con algo más específico?**
+Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones conceptuales, o ayudarte de otras maneras."""
+                        
+                        pensamientos.append("⚠️ Información en tiempo real no disponible")
+                        pensamientos.append("🛠️ Proporcionando alternativas para obtener información actualizada")
                 
                 return jsonify({
                     'respuesta': respuesta_completa['output'],
