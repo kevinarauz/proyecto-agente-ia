@@ -13,14 +13,7 @@ let chatBody;
 let preguntaInput;
 let enviarBtn;
 let loadingTimer;
-    agregarMensaje(pregunta, 'usuario');
-    
-    // Mostrar razonamiento en tiempo real
-    mostrarRazonamientoTiempoReal(modelo, pregunta);
-    
-    // Limpiar input y desactivar botón
-    preguntaInput.value = '';
-    setLoading(true);Time;
+let startTime;
 
 // Estado global para razonamiento en tiempo real
 let currentThinkingSteps = [];
@@ -140,9 +133,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Validación en tiempo real del input
+    preguntaInput.addEventListener('input', validarInput);
+    validarInput(); // Validación inicial
+    
     // Actualizar mensaje inicial
     actualizarMensajeBienvenida();
     validarModoInternet();
+    
+    // Efecto de escritura para el mensaje del sistema
+    const mensajeSistema = document.querySelector('.mensaje-sistema');
+    if (mensajeSistema) {
+        mensajeSistema.style.opacity = '0';
+        setTimeout(() => {
+            mensajeSistema.style.transition = 'opacity 1s ease';
+            mensajeSistema.style.opacity = '1';
+        }, 500);
+    }
+    
+    // Auto-focus en el input
+    setTimeout(() => {
+        if (preguntaInput) {
+            preguntaInput.focus();
+        }
+    }, 1000);
 });
 
 // Función para actualizar el mensaje de bienvenida según el modelo seleccionado
@@ -299,6 +313,9 @@ async function handleSubmit(e) {
     
     // Agregar mensaje del usuario al chat
     agregarMensaje(pregunta, 'usuario');
+    
+    // Mostrar razonamiento en tiempo real
+    mostrarRazonamientoTiempoReal(modelo, pregunta);
     
     // Limpiar input y deshabilitar botón
     preguntaInput.value = '';
@@ -734,35 +751,13 @@ function limpiarChat() {
     });
 }
 
-// Efectos adicionales
-document.addEventListener('DOMContentLoaded', function() {
-    // Efecto de escritura para el mensaje del sistema
-    const mensajeSistema = document.querySelector('.mensaje-sistema');
-    if (mensajeSistema) {
-        mensajeSistema.style.opacity = '0';
-        setTimeout(() => {
-            mensajeSistema.style.transition = 'opacity 1s ease';
-            mensajeSistema.style.opacity = '1';
-        }, 500);
-    }
-    
-    // Auto-focus en el input
-    setTimeout(() => {
-        preguntaInput.focus();
-    }, 1000);
-});
+// Efectos adicionales ya están consolidados en el DOMContentLoaded principal
 
 // Prevenir envío de formulario vacío
 function validarInput() {
     const pregunta = preguntaInput.value.trim();
     enviarBtn.disabled = !pregunta || preguntaInput.disabled;
 }
-
-// Event listener para validación en tiempo real
-document.addEventListener('DOMContentLoaded', function() {
-    preguntaInput.addEventListener('input', validarInput);
-    validarInput(); // Validación inicial
-});
 
 // Función para demo general del agente
 async function demoGeneral() {
