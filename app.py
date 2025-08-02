@@ -349,8 +349,7 @@ for model_name, model_instance in models.items():
                 max_iterations=6,  # Incrementado para más análisis
                 max_execution_time=30,  # Incrementado para análisis detallado
                 handle_parsing_errors=True,
-                return_intermediate_steps=True,
-                early_stopping_method="generate"  # Permite generar respuesta parcial si llega al límite
+                return_intermediate_steps=True
             )
             print(f"✅ Agente {model_name} creado con herramientas avanzadas")
         except Exception as e:
@@ -670,14 +669,36 @@ Responde de manera clara y útil con estos datos actuales."""
                             }
                             pasos_intermedios.append(paso_info)
                             
-                            # Agregar pensamiento formateado
+                            # Agregar pensamiento formateado más detallado
                             if hasattr(accion, 'tool'):
                                 pensamientos.append(f"💭 Paso {i+1}: Usando herramienta '{accion.tool}' con entrada: '{accion.tool_input}'")
-                                pensamientos.append(f"📋 Resultado: {observacion[:200]}..." if len(str(observacion)) > 200 else f"📋 Resultado: {observacion}")
+                                # Mostrar resultado truncado pero más informativo
+                                resultado_truncado = str(observacion)[:300]
+                                if len(str(observacion)) > 300:
+                                    resultado_truncado += "..."
+                                pensamientos.append(f"📋 Resultado: {resultado_truncado}")
+                            
+                            # Agregar análisis del resultado
+                            if "No good" in str(observacion):
+                                pensamientos.append("⚠️ Búsqueda sin resultados útiles, intentando método alternativo")
+                            elif len(str(observacion)) > 50:
+                                pensamientos.append("✅ Información obtenida, procesando para generar respuesta")
+                
+                # Si hay pasos pero sin pensamientos detallados, agregar contexto
+                if len(pasos_intermedios) > 0 and len(pensamientos) == 0:
+                    pensamientos.append("🔄 Ejecutando proceso de búsqueda y análisis")
+                    pensamientos.append(f"📊 Completados {len(pasos_intermedios)} pasos de investigación")
+                
+                # Si no hay pasos intermedios, crear pensamientos básicos
+                if len(pasos_intermedios) == 0:
+                    pensamientos.append("💭 Analizando consulta con conocimiento base")
+                    pensamientos.append("🧠 Generando respuesta usando modelo de IA")
+                    if "noticias" in pregunta.lower() or "hoy" in pregunta.lower():
+                        pensamientos.append("📰 Nota: Para noticias actuales se recomienda activar búsqueda web")
                 else:
-                    print("ℹ️ No se encontraron pasos intermedios")
-                    # Para consultas simples, agregar un pensamiento básico
-                    pensamientos.append("💭 Procesando consulta directamente sin necesidad de búsquedas web")
+                    # Agregar pensamiento final
+                    pensamientos.append("🎯 Sintetizando información recopilada")
+                    pensamientos.append("📝 Formateando respuesta final")
                 
                 # Verificar si las búsquedas fallaron y generar respuesta de fallback inteligente
                 respuesta_output = respuesta_completa.get('output', '')

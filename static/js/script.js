@@ -101,16 +101,77 @@ function finalizarRazonamientoTiempoReal() {
     if (currentThinkingContainer) {
         const indicator = currentThinkingContainer.querySelector('.thinking-indicator');
         if (indicator) {
-            indicator.innerHTML = '<small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>Razonamiento completado</small>';
+            indicator.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>Razonamiento completado</small>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="ocultarRazonamiento()" title="Ocultar razonamiento">
+                        <i class="fas fa-eye-slash"></i>
+                    </button>
+                </div>
+            `;
         }
         
+        // Cambiar el título para indicar que el proceso terminó
+        const titleElement = currentThinkingContainer.querySelector('h6');
+        if (titleElement) {
+            titleElement.innerHTML = '<i class="fas fa-brain me-1"></i>Proceso de razonamiento completado';
+        }
+        
+        // NO remover automáticamente el contenedor - dejarlo visible
+        // El usuario puede ocultarlo manualmente si quiere
+        
+        // Solo limpiar las variables de control
+        currentThinkingSteps = [];
+        // currentThinkingContainer = null; // Mantener la referencia para poder ocultarlo después
+    }
+}
+
+// Nueva función para ocultar el razonamiento manualmente
+function ocultarRazonamiento() {
+    if (currentThinkingContainer && currentThinkingContainer.parentNode) {
+        currentThinkingContainer.style.transition = 'opacity 0.3s ease';
+        currentThinkingContainer.style.opacity = '0';
         setTimeout(() => {
             if (currentThinkingContainer && currentThinkingContainer.parentNode) {
                 currentThinkingContainer.remove();
             }
             currentThinkingContainer = null;
-            currentThinkingSteps = [];
-        }, 2000);
+        }, 300);
+    }
+}
+
+// Función para mostrar el proceso de razonamiento real del agente
+function mostrarProcesoRazonamientoReal(pensamientos, modelo) {
+    if (!pensamientos || pensamientos.length === 0) return;
+    
+    // Actualizar el contenedor existente con los pensamientos reales
+    if (currentThinkingContainer) {
+        const stepsContainer = currentThinkingContainer.querySelector('#thinking-steps');
+        if (stepsContainer) {
+            // Limpiar pasos simulados
+            stepsContainer.innerHTML = '';
+            
+            // Agregar pensamientos reales
+            pensamientos.forEach((pensamiento, index) => {
+                const stepElement = document.createElement('div');
+                stepElement.className = 'thinking-step mb-1 p-2 border-start border-3 border-success bg-white rounded-end';
+                stepElement.innerHTML = `
+                    <small class="text-muted">Paso ${index + 1}</small><br>
+                    <strong>${pensamiento}</strong>
+                `;
+                stepsContainer.appendChild(stepElement);
+            });
+            
+            // Actualizar el título
+            const titleElement = currentThinkingContainer.querySelector('h6');
+            if (titleElement) {
+                const esDeepSeek = modelo === 'deepseek-r1:8b';
+                titleElement.innerHTML = `<i class="fas fa-brain me-1"></i>${esDeepSeek ? 'Razonamiento DeepSeek R1' : 'Proceso de razonamiento del agente'}`;
+            }
+            
+            // Scroll al final
+            currentThinkingContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
     }
 }
 
@@ -368,6 +429,11 @@ async function handleSubmit(e) {
         // Finalizar razonamiento en tiempo real
         finalizarRazonamientoTiempoReal();
         
+        // Mostrar el proceso de razonamiento real del agente
+        if (pensamientos && pensamientos.length > 0) {
+            mostrarProcesoRazonamientoReal(pensamientos, respuesta.modelo_usado);
+        }
+        
         agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos, metadata, pensamientos);
     } catch (error) {
         console.error('Error:', error);
@@ -508,25 +574,26 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
         if (pensamientos && pensamientos.length > 0) {
             // Verificar si es DeepSeek R1 para mostrar razonamiento especial
             const esDeepSeekR1 = modeloUsado === 'deepseek-r1:8b';
-            const tipoRazonamiento = esDeepSeekR1 ? 'razonamiento avanzado' : 'proceso de pensamiento';
+            const tipoRazonamiento = esDeepSeekR1 ? 'razonamiento avanzado' : 'proceso de pensamiento completo';
             const icono = esDeepSeekR1 ? 'fas fa-brain' : 'fas fa-cogs';
             const colorBorde = esDeepSeekR1 ? 'border-info' : 'border-primary';
             
             procesoCompleto = `
                 <div class="proceso-pensamiento mt-3">
-                    <button class="btn btn-sm btn-outline-${esDeepSeekR1 ? 'info' : 'secondary'}" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${uniqueId}" aria-expanded="false">
+                    <button class="btn btn-sm btn-outline-${esDeepSeekR1 ? 'info' : 'primary'}" type="button" data-bs-toggle="collapse" data-bs-target="#pensamiento-${uniqueId}" aria-expanded="false">
                         <i class="${icono} me-1"></i>Ver ${tipoRazonamiento} (${pensamientos.length} pasos)
                     </button>
                     <div class="collapse mt-2" id="pensamiento-${uniqueId}">
                         <div class="card card-body ${esDeepSeekR1 ? 'bg-info bg-opacity-10' : 'bg-light'}">
-                            <h6 class="mb-3"><i class="${icono} me-1"></i>${esDeepSeekR1 ? 'Razonamiento DeepSeek R1:' : 'Proceso de razonamiento:'}</h6>
+                            <h6 class="mb-3"><i class="${icono} me-1"></i>${esDeepSeekR1 ? 'Razonamiento DeepSeek R1:' : 'Proceso de razonamiento del agente:'}</h6>
                             ${pensamientos.map((pensamiento, index) => `
                                 <div class="paso-pensamiento mb-2 p-2 border-start border-3 ${colorBorde}">
-                                    <small class="text-muted">${new Date().toLocaleTimeString()}</small><br>
-                                    ${pensamiento}
+                                    <small class="text-muted">Paso ${index + 1}</small><br>
+                                    <strong>${pensamiento}</strong>
                                 </div>
                             `).join('')}
-                            ${esDeepSeekR1 ? '<small class="text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Este es el proceso de razonamiento paso a paso del modelo DeepSeek R1</small>' : ''}
+                            ${esDeepSeekR1 ? '<small class="text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Este es el proceso de razonamiento paso a paso del modelo DeepSeek R1</small>' : 
+                              '<small class="text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Este proceso muestra cómo el agente analizó tu consulta paso a paso</small>'}
                         </div>
                     </div>
                 </div>
