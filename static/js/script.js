@@ -31,7 +31,12 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
     tempContainer.className = 'message ia-message mb-3';
     tempContainer.innerHTML = `
         <div class="thinking-real-time bg-info bg-opacity-10 border border-info rounded p-3">
-            <h6 class="mb-2"><i class="fas fa-brain me-1"></i>Razonamiento en tiempo real - AgentExecutor</h6>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0"><i class="fas fa-brain me-1"></i>Razonamiento en tiempo real - AgentExecutor</h6>
+                <button class="btn btn-sm btn-outline-info" onclick="toggleRazonamiento()" title="Ocultar/Mostrar razonamiento">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
             <div id="thinking-steps"></div>
             <div class="thinking-indicator">
                 <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
@@ -44,6 +49,7 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
     chatBody.scrollTop = chatBody.scrollHeight;
     currentThinkingContainer = tempContainer;
     agentStartTime = new Date();
+    razonamientoOculto = false; // Reset del estado
     
     // Agregar primera fase del agente
     setTimeout(() => {
@@ -270,12 +276,7 @@ function finalizarRazonamientoTiempoReal() {
             const indicator = currentThinkingContainer.querySelector('.thinking-indicator');
             if (indicator) {
                 indicator.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>AgentExecutor chain completado</small>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="ocultarRazonamiento()" title="Ocultar razonamiento">
-                            <i class="fas fa-eye-slash"></i>
-                        </button>
-                    </div>
+                    <small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>AgentExecutor chain completado (${tiempoTotal}s)</small>
                 `;
             }
             
@@ -300,17 +301,64 @@ function finalizarRazonamientoTiempoReal() {
     }
 }
 
-// Nueva función para ocultar el razonamiento manualmente
+// Variable global para estado de razonamiento
+let razonamientoOculto = false;
+let contenedorRazonamientoOriginal = null;
+
+// Nueva función para ocultar/mostrar el razonamiento manualmente
+function toggleRazonamiento() {
+    if (!currentThinkingContainer) return;
+    
+    // Encontrar el botón para actualizar el icono
+    const toggleButton = currentThinkingContainer.querySelector('button');
+    const thinkingContent = currentThinkingContainer.querySelector('#thinking-steps');
+    const thinkingIndicator = currentThinkingContainer.querySelector('.thinking-indicator');
+    
+    if (razonamientoOculto) {
+        // Mostrar razonamiento
+        if (thinkingContent) thinkingContent.style.display = 'block';
+        if (thinkingIndicator) thinkingIndicator.style.display = 'block';
+        razonamientoOculto = false;
+        
+        // Actualizar icono del botón
+        if (toggleButton) {
+            toggleButton.innerHTML = '<i class="fas fa-eye"></i>';
+            toggleButton.title = 'Ocultar razonamiento';
+        }
+        
+        // Restaurar pensamientos si los tenemos guardados
+        if (pensamientosDefinitivos.length > 0 && thinkingContent && thinkingContent.children.length === 0) {
+            pensamientosDefinitivos.forEach((pensamiento, index) => {
+                const stepElement = document.createElement('div');
+                stepElement.className = 'thinking-step mb-1 p-2 border-start border-3 border-success bg-white rounded-end';
+                stepElement.innerHTML = `
+                    <small class="text-muted">Paso ${index + 1}</small><br>
+                    <strong>${pensamiento}</strong>
+                `;
+                thinkingContent.appendChild(stepElement);
+            });
+        }
+        
+        // Scroll al final
+        currentThinkingContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else {
+        // Ocultar razonamiento
+        if (thinkingContent) thinkingContent.style.display = 'none';
+        if (thinkingIndicator) thinkingIndicator.style.display = 'none';
+        razonamientoOculto = true;
+        
+        // Actualizar icono del botón
+        if (toggleButton) {
+            toggleButton.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            toggleButton.title = 'Mostrar razonamiento';
+        }
+    }
+}
+
+// Nueva función para ocultar el razonamiento manualmente (legacy)
 function ocultarRazonamiento() {
-    if (currentThinkingContainer && currentThinkingContainer.parentNode) {
-        currentThinkingContainer.style.transition = 'opacity 0.3s ease';
-        currentThinkingContainer.style.opacity = '0';
-        setTimeout(() => {
-            if (currentThinkingContainer && currentThinkingContainer.parentNode) {
-                currentThinkingContainer.remove();
-            }
-            currentThinkingContainer = null;
-        }, 300);
+    if (currentThinkingContainer && currentThinkingContainer.parentNode && !razonamientoOculto) {
+        toggleRazonamiento();
     }
 }
 
@@ -334,33 +382,52 @@ function formatearTiempo(timestamp) {
     return 'N/A';
 }
 
+// Variable global para almacenar los pensamientos definitivos
+let pensamientosDefinitivos = [];
+
 // Función para mostrar el proceso de razonamiento real del agente
 function mostrarProcesoRazonamientoReal(pensamientos, modelo) {
     if (!pensamientos || pensamientos.length === 0) return;
+    
+    // Guardar los pensamientos definitivos
+    pensamientosDefinitivos = [...pensamientos];
     
     // Actualizar el contenedor existente con los pensamientos reales
     if (currentThinkingContainer) {
         const stepsContainer = currentThinkingContainer.querySelector('#thinking-steps');
         if (stepsContainer) {
-            // Limpiar pasos simulados
-            stepsContainer.innerHTML = '';
+            // NO limpiar los pasos simulados, solo agregar los reales o reemplazar si es necesario
+            const pasosExistentes = stepsContainer.querySelectorAll('.thinking-step').length;
             
-            // Agregar pensamientos reales
-            pensamientos.forEach((pensamiento, index) => {
-                const stepElement = document.createElement('div');
-                stepElement.className = 'thinking-step mb-1 p-2 border-start border-3 border-success bg-white rounded-end';
-                stepElement.innerHTML = `
-                    <small class="text-muted">Paso ${index + 1}</small><br>
-                    <strong>${pensamiento}</strong>
-                `;
-                stepsContainer.appendChild(stepElement);
-            });
+            // Si ya hay pasos y son menos que los pensamientos reales, reemplazar todo
+            if (pasosExistentes > 0 && pasosExistentes !== pensamientos.length) {
+                stepsContainer.innerHTML = '';
+            }
+            
+            // Agregar pensamientos reales solo si el contenedor está vacío o necesita actualización
+            if (stepsContainer.children.length === 0) {
+                pensamientos.forEach((pensamiento, index) => {
+                    const stepElement = document.createElement('div');
+                    stepElement.className = 'thinking-step mb-1 p-2 border-start border-3 border-success bg-white rounded-end';
+                    stepElement.innerHTML = `
+                        <small class="text-muted">Paso ${index + 1}</small><br>
+                        <strong>${pensamiento}</strong>
+                    `;
+                    stepsContainer.appendChild(stepElement);
+                });
+            }
             
             // Actualizar el título
             const titleElement = currentThinkingContainer.querySelector('h6');
             if (titleElement) {
                 const esDeepSeek = modelo === 'deepseek-r1:8b';
                 titleElement.innerHTML = `<i class="fas fa-brain me-1"></i>${esDeepSeek ? 'Razonamiento DeepSeek R1' : 'Proceso de razonamiento del agente'}`;
+            }
+            
+            // Remover el indicador de "Procesando..." 
+            const thinkingIndicator = currentThinkingContainer.querySelector('.thinking-indicator');
+            if (thinkingIndicator) {
+                thinkingIndicator.style.display = 'none';
             }
             
             // Scroll al final
