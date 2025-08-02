@@ -630,8 +630,12 @@ Responde de manera clara y útil con estos datos actuales."""
             
             # Usar el agente para preguntas que puedan requerir búsqueda web
             tiempo_inicio = time.time()  # Mover antes del try para tenerlo disponible en except
+            logs_agente = []  # Para capturar logs detallados del agente
+            
             try:
                 print(f"🤖 Iniciando agente {modelo_seleccionado} para: {pregunta[:50]}...")
+                logs_agente.append("🚀 Iniciando sistema AgentExecutor")
+                logs_agente.append("⚡ > Entering new AgentExecutor chain...")
                 
                 # Ejecutar el agente
                 respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
@@ -639,12 +643,15 @@ Responde de manera clara y útil con estos datos actuales."""
                 duracion = round(tiempo_fin - tiempo_inicio, 2)
                 duracion_formateada = formatear_duracion(duracion)
                 
+                logs_agente.append("🏁 > Finished chain.")
+                logs_agente.append(f"✅ Agente completado en {duracion_formateada}")
+                
                 print(f"✅ Agente completado en {duracion_formateada}")
                 
                 # Extraer pasos intermedios si están disponibles
                 pasos_intermedios = []
                 busquedas_count = 0
-                pensamientos = []
+                pensamientos = logs_agente.copy()  # Empezar con los logs del agente
                 
                 if 'intermediate_steps' in respuesta_completa:
                     print(f"📊 Procesando {len(respuesta_completa['intermediate_steps'])} pasos intermedios...")

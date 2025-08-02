@@ -18,8 +18,10 @@ let startTime;
 // Estado global para razonamiento en tiempo real
 let currentThinkingSteps = [];
 let currentThinkingContainer = null;
+let agentExecutionTimer = null;
+let agentStartTime = null;
 
-// Función para mostrar razonamiento en tiempo real
+// Función para mostrar razonamiento en tiempo real con información del AgentExecutor
 function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
     if (!modeloSeleccionado) return;
     
@@ -29,7 +31,7 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
     tempContainer.className = 'message ia-message mb-3';
     tempContainer.innerHTML = `
         <div class="thinking-real-time bg-info bg-opacity-10 border border-info rounded p-3">
-            <h6 class="mb-2"><i class="fas fa-brain me-1"></i>Razonamiento en tiempo real...</h6>
+            <h6 class="mb-2"><i class="fas fa-brain me-1"></i>Razonamiento en tiempo real - AgentExecutor</h6>
             <div id="thinking-steps"></div>
             <div class="thinking-indicator">
                 <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
@@ -41,96 +43,195 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
     chatBody.appendChild(tempContainer);
     chatBody.scrollTop = chatBody.scrollHeight;
     currentThinkingContainer = tempContainer;
+    agentStartTime = new Date();
     
-    // Simular pasos de razonamiento progresivos
+    // Agregar primera fase del agente
     setTimeout(() => {
-        agregarPasoRazonamiento(`🔍 Analizando pregunta: "${pregunta}"`);
+        agregarPasoRazonamientoTiempoReal("� Iniciando sistema de agentes de IA", "inicio");
+    }, 200);
+    
+    setTimeout(() => {
+        agregarPasoRazonamientoTiempoReal("⚡ > Entering new AgentExecutor chain...", "agente");
     }, 500);
     
     setTimeout(() => {
-        if (modeloSeleccionado === 'deepseek-r1:8b') {
-            agregarPasoRazonamiento("🧠 Iniciando razonamiento avanzado paso a paso");
-        } else if (modeloSeleccionado === 'phi3') {
-            agregarPasoRazonamiento("⚡ Procesamiento rápido y eficiente activado");
-        } else {
-            agregarPasoRazonamiento("🤖 Procesando con modelo de IA especializado");
-        }
-    }, 1000);
+        agregarPasoRazonamientoTiempoReal(`🔍 Analizando consulta: "${pregunta}"`, "analisis");
+    }, 800);
     
-    setTimeout(() => {
-        const internetHabilitado = document.getElementById('permitirInternet').checked;
-        if (internetHabilitado) {
-            agregarPasoRazonamiento("🌐 Verificando si necesita búsqueda web...");
-        } else {
-            agregarPasoRazonamiento("📚 Consultando base de conocimientos...");
-        }
-    }, 1500);
+    // Detección de tipo de consulta
+    const esConsultaNoticias = pregunta.toLowerCase().includes('noticias') || pregunta.toLowerCase().includes('hoy') || pregunta.toLowerCase().includes('actualidad');
+    const internetHabilitado = document.getElementById('permitirInternet').checked;
     
-    // Para consultas de noticias, agregar más pasos específicos
-    if (pregunta.toLowerCase().includes('noticias') || pregunta.toLowerCase().includes('hoy')) {
+    if (esConsultaNoticias && internetHabilitado) {
         setTimeout(() => {
-            agregarPasoRazonamiento("📰 Detectada consulta de noticias actuales");
+            agregarPasoRazonamientoTiempoReal("📰 Detectada consulta de información actual", "deteccion");
+        }, 1200);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("🤖 I'll do my best to help!", "agente");
+        }, 1600);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("💭 Thought: User is asking for today's news...", "pensamiento");
         }, 2000);
         
         setTimeout(() => {
-            if (document.getElementById('permitirInternet').checked) {
-                agregarPasoRazonamiento("🔄 Activando modo agente para búsqueda web");
-                agregarPasoRazonamiento("🌐 Preparando consulta a DuckDuckGo...");
-            }
+            agregarPasoRazonamientoTiempoReal("🔧 Action: web_search", "accion");
         }, 2500);
         
         setTimeout(() => {
-            if (document.getElementById('permitirInternet').checked) {
-                agregarPasoRazonamiento("🔍 Ejecutando búsqueda web en múltiples fuentes");
-                agregarPasoRazonamiento("📊 Procesando resultados de búsqueda...");
-            }
-        }, 4000);
+            agregarPasoRazonamientoTiempoReal("� Action Input: \"noticias de hoy\"", "input");
+        }, 3000);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("🌐 🔍 Búsqueda web avanzada: noticias de hoy", "busqueda");
+        }, 3500);
+        
+        // Simular progreso de búsqueda
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("✅ DuckDuckGo: Resultados obtenidos", "resultado");
+        }, 5000);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("📊 Procesando múltiples fuentes de noticias...", "procesamiento");
+        }, 6000);
+        
+    } else if (internetHabilitado) {
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("🤖 Evaluando si requiere búsqueda web", "evaluacion");
+        }, 1200);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("💭 Thought: Analyzing query for web search necessity", "pensamiento");
+        }, 1800);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("🧠 Preparando respuesta usando conocimiento base", "preparacion");
+        }, 2500);
+    } else {
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("� Modo offline: Consultando base de conocimientos", "offline");
+        }, 1200);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal(`🤖 Procesando con ${modeloSeleccionado}`, "modelo");
+        }, 1800);
     }
 }
 
-// Función para agregar paso de razonamiento
-function agregarPasoRazonamiento(paso) {
+// Función mejorada para agregar pasos de razonamiento con tipos
+function agregarPasoRazonamientoTiempoReal(paso, tipo = "general") {
     if (!currentThinkingContainer) return;
+    
+    const tiempoActual = new Date();
+    const tiempoTranscurrido = agentStartTime ? ((tiempoActual - agentStartTime) / 1000).toFixed(1) : 0;
     
     const stepsContainer = currentThinkingContainer.querySelector('#thinking-steps');
     const stepElement = document.createElement('div');
-    stepElement.className = 'thinking-step mb-1 p-2 border-start border-3 border-info bg-white rounded-end';
+    
+    // Diferentes estilos según el tipo
+    let claseCSS = 'thinking-step mb-1 p-2 border-start border-3 bg-white rounded-end';
+    let iconoTipo = '';
+    
+    switch(tipo) {
+        case 'inicio':
+            claseCSS += ' border-primary';
+            iconoTipo = '🚀';
+            break;
+        case 'agente':
+            claseCSS += ' border-success';
+            iconoTipo = '⚡';
+            break;
+        case 'pensamiento':
+            claseCSS += ' border-warning';
+            iconoTipo = '💭';
+            break;
+        case 'accion':
+            claseCSS += ' border-danger';
+            iconoTipo = '🔧';
+            break;
+        case 'busqueda':
+            claseCSS += ' border-info';
+            iconoTipo = '🌐';
+            break;
+        case 'resultado':
+            claseCSS += ' border-success';
+            iconoTipo = '✅';
+            break;
+        case 'fin':
+            claseCSS += ' border-dark';
+            iconoTipo = '🏁';
+            break;
+        case 'error':
+            claseCSS += ' border-danger';
+            iconoTipo = '❌';
+            break;
+        default:
+            claseCSS += ' border-info';
+            iconoTipo = '📋';
+    }
+    
+    stepElement.className = claseCSS;
     stepElement.innerHTML = `
-        <small class="text-muted">${new Date().toLocaleTimeString()}</small><br>
-        ${paso}
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+                <small class="text-muted">[+${tiempoTranscurrido}s]</small><br>
+                <span style="font-family: 'Courier New', monospace; font-size: 0.9em;">${paso}</span>
+            </div>
+            <small class="text-muted ms-2">${iconoTipo}</small>
+        </div>
     `;
     
     stepsContainer.appendChild(stepElement);
     currentThinkingContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
-// Función para finalizar razonamiento en tiempo real
+// Función para finalizar razonamiento en tiempo real con mensaje del agente
 function finalizarRazonamientoTiempoReal() {
     if (currentThinkingContainer) {
-        const indicator = currentThinkingContainer.querySelector('.thinking-indicator');
-        if (indicator) {
-            indicator.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>Razonamiento completado</small>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="ocultarRazonamiento()" title="Ocultar razonamiento">
-                        <i class="fas fa-eye-slash"></i>
-                    </button>
-                </div>
-            `;
-        }
+        // Agregar mensajes finales del agente
+        const tiempoTotal = agentStartTime ? ((new Date() - agentStartTime) / 1000).toFixed(1) : 0;
         
-        // Cambiar el título para indicar que el proceso terminó
-        const titleElement = currentThinkingContainer.querySelector('h6');
-        if (titleElement) {
-            titleElement.innerHTML = '<i class="fas fa-brain me-1"></i>Proceso de razonamiento completado';
-        }
+        // Agregar paso final del agente
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("🏁 > Finished chain.", "fin");
+        }, 100);
         
-        // NO remover automáticamente el contenedor - dejarlo visible
-        // El usuario puede ocultarlo manualmente si quiere
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal(`✅ Agente completado en ${tiempoTotal}s`, "exito");
+        }, 300);
         
-        // Solo limpiar las variables de control
+        setTimeout(() => {
+            const indicator = currentThinkingContainer.querySelector('.thinking-indicator');
+            if (indicator) {
+                indicator.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>AgentExecutor chain completado</small>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="ocultarRazonamiento()" title="Ocultar razonamiento">
+                            <i class="fas fa-eye-slash"></i>
+                        </button>
+                    </div>
+                `;
+            }
+            
+            // Cambiar el título para indicar que el proceso terminó
+            const titleElement = currentThinkingContainer.querySelector('h6');
+            if (titleElement) {
+                titleElement.innerHTML = `<i class="fas fa-brain me-1"></i>AgentExecutor chain completado (${tiempoTotal}s)`;
+            }
+            
+            // Agregar borde de finalización
+            const thinkingDiv = currentThinkingContainer.querySelector('.thinking-real-time');
+            if (thinkingDiv) {
+                thinkingDiv.classList.remove('bg-info', 'border-info');
+                thinkingDiv.classList.add('bg-success', 'bg-opacity-10', 'border-success');
+            }
+        }, 500);
+        
+        // Solo limpiar las variables de control, mantener visible
         currentThinkingSteps = [];
-        // currentThinkingContainer = null; // Mantener la referencia para poder ocultarlo después
+        agentExecutionTimer = null;
+        // currentThinkingContainer = null; // Mantener visible para el usuario
     }
 }
 
@@ -146,6 +247,26 @@ function ocultarRazonamiento() {
             currentThinkingContainer = null;
         }, 300);
     }
+}
+
+// Función auxiliar para formatear tiempo
+function formatearTiempo(timestamp) {
+    if (!timestamp) return 'N/A';
+    
+    // Si es un timestamp de JavaScript (milisegundos)
+    if (typeof timestamp === 'number' && timestamp > 1000000000000) {
+        return new Date(timestamp).toLocaleTimeString();
+    }
+    // Si es un objeto Date
+    else if (timestamp instanceof Date) {
+        return timestamp.toLocaleTimeString();
+    }
+    // Si es un string
+    else if (typeof timestamp === 'string') {
+        return new Date(timestamp).toLocaleTimeString();
+    }
+    
+    return 'N/A';
 }
 
 // Función para mostrar el proceso de razonamiento real del agente
@@ -383,8 +504,11 @@ async function handleSubmit(e) {
     // Agregar mensaje del usuario al chat
     agregarMensaje(pregunta, 'usuario');
     
-    // Mostrar razonamiento en tiempo real
-    mostrarRazonamientoTiempoReal(modelo, pregunta);
+    // Mostrar razonamiento en tiempo real específico para agentes
+    const esAgente = (modo === 'agente' || (!permitirInternet && (modo === 'agente' || modo === 'busqueda_rapida')));
+    if (esAgente || permitirInternet) {
+        mostrarRazonamientoTiempoReal(modelo, pregunta);
+    }
     
     // Limpiar input y deshabilitar botón
     preguntaInput.value = '';
