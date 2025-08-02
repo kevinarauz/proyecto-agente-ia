@@ -87,9 +87,9 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
             agregarPasoRazonamientoTiempoReal("🌐 🔍 Búsqueda web avanzada: noticias de hoy", "busqueda");
         }, 3500);
         
-        // Simular progreso de búsqueda más realista para 6 minutos
+        // Simular progreso de búsqueda más realista para 30 minutos
         setTimeout(() => {
-            agregarPasoRazonamientoTiempoReal("⏳ Procesando múltiples fuentes... (puede tomar hasta 6 minutos)", "info");
+            agregarPasoRazonamientoTiempoReal("⏳ Procesando múltiples fuentes... (puede tomar hasta 30 minutos)", "info");
         }, 4000);
         
         setTimeout(() => {
@@ -104,15 +104,22 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
             agregarPasoRazonamientoTiempoReal("🔄 Analizando y sintetizando información encontrada...", "analisis");
         }, 8000);
         
-        // Agregar indicadores de progreso cada 30 segundos para consultas largas
+        // Agregar indicadores de progreso cada 30 segundos para consultas largas (30 minutos)
         if (esConsultaNoticias && internetHabilitado) {
-            const intervalos = [15, 30, 60, 90, 120, 180, 240, 300];
+            const intervalos = [15, 30, 60, 120, 180, 300, 450, 600, 900, 1200, 1500, 1800]; // Hasta 30 minutos
             intervalos.forEach((segundos, index) => {
                 setTimeout(() => {
                     const minutos = Math.floor(segundos / 60);
                     const segsRestantes = segundos % 60;
                     const tiempoFormato = minutos > 0 ? `${minutos}m ${segsRestantes}s` : `${segundos}s`;
-                    agregarPasoRazonamientoTiempoReal(`⏱️ Progreso: ${tiempoFormato} transcurridos - Búsqueda en curso...`, "progreso");
+                    
+                    if (segundos <= 300) { // Primeros 5 minutos
+                        agregarPasoRazonamientoTiempoReal(`⏱️ Progreso: ${tiempoFormato} - Búsqueda profunda en curso...`, "progreso");
+                    } else if (segundos <= 900) { // 5-15 minutos
+                        agregarPasoRazonamientoTiempoReal(`🔍 Progreso: ${tiempoFormato} - Analizando múltiples fuentes...`, "progreso");
+                    } else { // 15-30 minutos
+                        agregarPasoRazonamientoTiempoReal(`🧠 Progreso: ${tiempoFormato} - Procesamiento avanzado...`, "progreso");
+                    }
                 }, segundos * 1000);
             });
         }
@@ -195,17 +202,46 @@ function agregarPasoRazonamientoTiempoReal(paso, tipo = "general") {
             claseCSS += ' border-secondary';
             iconoTipo = '💡';
             break;
+        case 'think':
+            claseCSS += ' border-purple';
+            iconoTipo = '💭';
+            break;
+        case 'razonamiento':
+            claseCSS += ' border-primary';
+            iconoTipo = '🧠';
+            break;
         default:
             claseCSS += ' border-info';
             iconoTipo = '📋';
     }
     
     stepElement.className = claseCSS;
+    
+    // Formateo especial para contenido <think>
+    let contenidoFormateado = paso;
+    if (tipo === 'think' || paso.includes('<think>')) {
+        // Resaltar contenido de pensamiento interno
+        contenidoFormateado = `<div class="think-content p-2 bg-light rounded mt-1">
+            <small class="text-muted"><i class="fas fa-brain"></i> Razonamiento interno DeepSeek R1:</small>
+            <div class="mt-1" style="font-style: italic; color: #6c757d;">${paso}</div>
+        </div>`;
+    } else if (paso.includes('Thought:')) {
+        // Formatear pensamientos del agente
+        contenidoFormateado = `<div class="thought-content">
+            <span style="color: #28a745; font-weight: bold;">💭 ${paso}</span>
+        </div>`;
+    } else if (paso.includes('Action Input:')) {
+        // Formatear inputs de acciones
+        contenidoFormateado = `<div class="action-input-content">
+            <span style="color: #dc3545; font-weight: bold;">📝 ${paso}</span>
+        </div>`;
+    }
+    
     stepElement.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">
             <div class="flex-grow-1">
                 <small class="text-muted">[+${tiempoTranscurrido}s]</small><br>
-                <span style="font-family: 'Courier New', monospace; font-size: 0.9em;">${paso}</span>
+                <div style="font-family: 'Courier New', monospace; font-size: 0.9em;">${contenidoFormateado}</div>
             </div>
             <small class="text-muted ms-2">${iconoTipo}</small>
         </div>

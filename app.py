@@ -346,8 +346,8 @@ for model_name, model_instance in models.items():
                 agent=agent, 
                 tools=tools, 
                 verbose=True,
-                max_iterations=12,  # Aumentado para permitir más pasos de búsqueda
-                max_execution_time=360,  # 6 minutos para búsquedas completas
+                max_iterations=20,  # Aumentado significativamente para búsquedas extensas
+                max_execution_time=1800,  # 30 minutos para búsquedas completas
                 handle_parsing_errors=True,
                 return_intermediate_steps=True
             )
@@ -637,8 +637,35 @@ Responde de manera clara y útil con estos datos actuales."""
                 logs_agente.append("🚀 Iniciando sistema AgentExecutor")
                 logs_agente.append("⚡ > Entering new AgentExecutor chain...")
                 
-                # Ejecutar el agente
-                respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
+                # Configurar captura de logs más detallada para obtener <think> y otros elementos
+                import io
+                import sys
+                import logging
+                from contextlib import redirect_stdout, redirect_stderr
+                
+                # Crear capturadores de salida
+                captured_output = io.StringIO()
+                captured_logs = []
+                
+                # Handler personalizado para capturar logs
+                class LogCapture(logging.Handler):
+                    def emit(self, record):
+                        captured_logs.append(self.format(record))
+                
+                log_capture = LogCapture()
+                logging.getLogger().addHandler(log_capture)
+                
+                try:
+                    # Ejecutar el agente con captura
+                    with redirect_stdout(captured_output):
+                        respuesta_completa = agents[modelo_seleccionado].invoke({"input": pregunta})
+                finally:
+                    # Remover el handler
+                    logging.getLogger().removeHandler(log_capture)
+                
+                # Obtener toda la salida capturada
+                agent_full_output = captured_output.getvalue()
+                
                 tiempo_fin = time.time()
                 duracion = round(tiempo_fin - tiempo_inicio, 2)
                 duracion_formateada = formatear_duracion(duracion)
@@ -648,10 +675,41 @@ Responde de manera clara y útil con estos datos actuales."""
                 
                 print(f"✅ Agente completado en {duracion_formateada}")
                 
+                # Procesar la salida capturada para extraer <think> y otros elementos
+                think_content = []
+                if agent_full_output:
+                    # Buscar contenido <think> usando regex
+                    import re
+                    think_matches = re.findall(r'<think>(.*?)</think>', agent_full_output, re.DOTALL | re.IGNORECASE)
+                    for i, think in enumerate(think_matches):
+                        think_content.append(f"💭 <think> {i+1}: {think.strip()}")
+                    
+                    # Buscar otros patrones útiles
+                    thought_matches = re.findall(r'Thought: (.*?)(?=\n(?:Action:|Observation:|Final Answer:)|$)', agent_full_output, re.DOTALL)
+                    for i, thought in enumerate(thought_matches):
+                        if thought.strip():
+                            logs_agente.append(f"🧠 Thought {i+1}: {thought.strip()}")
+                    
+                    # Buscar acciones específicas
+                    action_input_matches = re.findall(r'Action Input: (.*?)(?=\n|$)', agent_full_output)
+                    for i, action_input in enumerate(action_input_matches):
+                        if action_input.strip():
+                            logs_agente.append(f"📝 Action Input {i+1}: {action_input.strip()}")
+                
+                # Agregar logs capturados
+                for log_msg in captured_logs:
+                    if any(keyword in log_msg.lower() for keyword in ['think', 'thought', 'action', 'observation']):
+                        logs_agente.append(f"📋 Log: {log_msg}")
+                
                 # Extraer pasos intermedios si están disponibles
                 pasos_intermedios = []
                 busquedas_count = 0
                 pensamientos = logs_agente.copy()  # Empezar con los logs del agente
+                
+                # Agregar contenido <think> a los pensamientos
+                if think_content:
+                    pensamientos.extend(think_content)
+                    print(f"📝 Capturado {len(think_content)} bloques <think>")
                 
                 if 'intermediate_steps' in respuesta_completa:
                     print(f"📊 Procesando {len(respuesta_completa['intermediate_steps'])} pasos intermedios...")
