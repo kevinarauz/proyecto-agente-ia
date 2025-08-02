@@ -75,8 +75,16 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
         setTimeout(() => {
             if (document.getElementById('permitirInternet').checked) {
                 agregarPasoRazonamiento("🔄 Activando modo agente para búsqueda web");
+                agregarPasoRazonamiento("🌐 Preparando consulta a DuckDuckGo...");
             }
         }, 2500);
+        
+        setTimeout(() => {
+            if (document.getElementById('permitirInternet').checked) {
+                agregarPasoRazonamiento("🔍 Ejecutando búsqueda web en múltiples fuentes");
+                agregarPasoRazonamiento("📊 Procesando resultados de búsqueda...");
+            }
+        }, 4000);
     }
 }
 

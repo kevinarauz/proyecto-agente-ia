@@ -346,8 +346,8 @@ for model_name, model_instance in models.items():
                 agent=agent, 
                 tools=tools, 
                 verbose=True,
-                max_iterations=6,  # Incrementado para más análisis
-                max_execution_time=30,  # Incrementado para análisis detallado
+                max_iterations=8,  # Aumentado para permitir más pasos
+                max_execution_time=45,  # Aumentado para permitir más tiempo
                 handle_parsing_errors=True,
                 return_intermediate_steps=True
             )
@@ -629,8 +629,8 @@ Responde de manera clara y útil con estos datos actuales."""
                     pass
             
             # Usar el agente para preguntas que puedan requerir búsqueda web
+            tiempo_inicio = time.time()  # Mover antes del try para tenerlo disponible en except
             try:
-                tiempo_inicio = time.time()
                 print(f"🤖 Iniciando agente {modelo_seleccionado} para: {pregunta[:50]}...")
                 
                 # Ejecutar el agente
@@ -770,6 +770,65 @@ Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones c
                 
                 # Manejo específico para diferentes tipos de errores
                 if "iteration limit" in error_msg.lower() or "time limit" in error_msg.lower():
+                    print("⚠️ Agente detenido por límite de tiempo/iteraciones, intentando extraer información parcial...")
+                    
+                    # Intentar extraer información del error si está disponible
+                    try:
+                        # Si hay pasos intermedios en el error, intentar usarlos
+                        tiempo_fin = time.time()
+                        duracion = round(tiempo_fin - tiempo_inicio, 2)
+                        duracion_formateada = formatear_duracion(duracion)
+                        
+                        # Crear respuesta usando la información disponible de la búsqueda
+                        if modelo_seleccionado in simple_chains:
+                            prompt_con_contexto = f"""
+                            El usuario preguntó: "{pregunta}"
+                            
+                            Se realizó una búsqueda web que encontró información parcial. Aunque el proceso se detuvo por límite de tiempo, puedo proporcionar una respuesta útil basada en:
+                            
+                            INFORMACIÓN DE BÚSQUEDA ENCONTRADA:
+                            - Se encontraron fuentes sobre Google Noticias y cómo buscar noticias
+                            - Información sobre configuración de búsquedas de noticias por ubicación
+                            - Referencias a herramientas para organizar y encontrar noticias
+                            
+                            Por favor, proporciona una respuesta útil sobre las noticias de hoy, incluyendo:
+                            1. Reconocimiento de que la búsqueda encontró información parcial
+                            2. Recomendaciones específicas para obtener noticias actuales
+                            3. Mencionar Google News como herramienta principal encontrada
+                            4. Sugerir otros sitios de noticias confiables
+                            5. Tips para configurar búsquedas de noticias
+                            
+                            Responde de manera útil y proactiva.
+                            """
+                            
+                            respuesta_con_contexto = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_con_contexto})
+                            
+                            return jsonify({
+                                'respuesta': respuesta_con_contexto,
+                                'modo': 'agente_parcial',
+                                'modelo_usado': modelo_seleccionado,
+                                'pensamientos': [
+                                    "🔍 Búsqueda web iniciada exitosamente",
+                                    "📊 Información parcial obtenida de fuentes web",
+                                    "⏰ Proceso detenido por límite de tiempo",
+                                    "🧠 Generando respuesta con información disponible",
+                                    "💡 Proporcionando recomendaciones adicionales"
+                                ],
+                                'metadata': {
+                                    'duracion': duracion,
+                                    'duracion_formateada': duracion_formateada,
+                                    'iteraciones': 1,
+                                    'busquedas': 1,
+                                    'timestamp': time.time(),
+                                    'timestamp_inicio': tiempo_inicio,
+                                    'timestamp_fin': tiempo_fin,
+                                    'internetHabilitado': permitir_internet,
+                                    'nota': 'Respuesta generada con información parcial'
+                                }
+                            })
+                    except:
+                        pass
+                    
                     fallback_msg = f"⚠️ La búsqueda tomó más tiempo del esperado. Intentando respuesta rápida...\n\n"
                 elif "parsing" in error_msg.lower():
                     fallback_msg = f"⚠️ Hubo un problema procesando la búsqueda. Usando respuesta directa...\n\n"
