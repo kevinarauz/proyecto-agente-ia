@@ -346,8 +346,8 @@ for model_name, model_instance in models.items():
                 agent=agent, 
                 tools=tools, 
                 verbose=True,
-                max_iterations=8,  # Aumentado para permitir más pasos
-                max_execution_time=45,  # Aumentado para permitir más tiempo
+                max_iterations=12,  # Aumentado para permitir más pasos de búsqueda
+                max_execution_time=360,  # 6 minutos para búsquedas completas
                 handle_parsing_errors=True,
                 return_intermediate_steps=True
             )

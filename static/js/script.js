@@ -87,7 +87,11 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
             agregarPasoRazonamientoTiempoReal("🌐 🔍 Búsqueda web avanzada: noticias de hoy", "busqueda");
         }, 3500);
         
-        // Simular progreso de búsqueda
+        // Simular progreso de búsqueda más realista para 6 minutos
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("⏳ Procesando múltiples fuentes... (puede tomar hasta 6 minutos)", "info");
+        }, 4000);
+        
         setTimeout(() => {
             agregarPasoRazonamientoTiempoReal("✅ DuckDuckGo: Resultados obtenidos", "resultado");
         }, 5000);
@@ -95,6 +99,23 @@ function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
         setTimeout(() => {
             agregarPasoRazonamientoTiempoReal("📊 Procesando múltiples fuentes de noticias...", "procesamiento");
         }, 6000);
+        
+        setTimeout(() => {
+            agregarPasoRazonamientoTiempoReal("🔄 Analizando y sintetizando información encontrada...", "analisis");
+        }, 8000);
+        
+        // Agregar indicadores de progreso cada 30 segundos para consultas largas
+        if (esConsultaNoticias && internetHabilitado) {
+            const intervalos = [15, 30, 60, 90, 120, 180, 240, 300];
+            intervalos.forEach((segundos, index) => {
+                setTimeout(() => {
+                    const minutos = Math.floor(segundos / 60);
+                    const segsRestantes = segundos % 60;
+                    const tiempoFormato = minutos > 0 ? `${minutos}m ${segsRestantes}s` : `${segundos}s`;
+                    agregarPasoRazonamientoTiempoReal(`⏱️ Progreso: ${tiempoFormato} transcurridos - Búsqueda en curso...`, "progreso");
+                }, segundos * 1000);
+            });
+        }
         
     } else if (internetHabilitado) {
         setTimeout(() => {
@@ -165,6 +186,14 @@ function agregarPasoRazonamientoTiempoReal(paso, tipo = "general") {
         case 'error':
             claseCSS += ' border-danger';
             iconoTipo = '❌';
+            break;
+        case 'progreso':
+            claseCSS += ' border-warning';
+            iconoTipo = '⏱️';
+            break;
+        case 'info':
+            claseCSS += ' border-secondary';
+            iconoTipo = '💡';
             break;
         default:
             claseCSS += ' border-info';
