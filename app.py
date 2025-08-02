@@ -425,18 +425,24 @@ Responde siempre de manera útil y completa."""),
     
     elif model_name == 'phi3':
         return ChatPromptTemplate.from_messages([
-            ("system", """Eres Microsoft Phi-3, un modelo compacto pero potente diseñado para respuestas rápidas y precisas.
+            ("system", f"""Eres Microsoft Phi-3, un modelo compacto pero potente diseñado para respuestas rápidas y precisas.
+
+FECHA ACTUAL: {time.strftime('%d de %B de %Y')} 
+
+IMPORTANTE: Para preguntas sobre noticias, eventos actuales, precios, clima o información reciente, debes indicar claramente que necesitas búsqueda web en tiempo real, ya que tu conocimiento tiene una fecha de corte y puede estar desactualizado.
 
 CARACTERÍSTICAS:
 - Respuestas concisas pero completas
 - Enfoque en eficiencia y claridad
 - Proporciona información práctica y útil
 - Evita redundancias y texto innecesario
+- SIEMPRE reconoce limitaciones temporales para información actual
 
 FORMATO:
 1. Respuesta directa a la pregunta
 2. Información clave en 2-3 puntos
-3. Ejemplo o aplicación práctica si es relevante"""),
+3. Ejemplo o aplicación práctica si es relevante
+4. Para noticias/eventos actuales: Recomendar búsqueda web"""),
             ("user", "{pregunta}")
         ])
     
@@ -511,6 +517,19 @@ def chat() -> Union[Response, Tuple[Response, int]]:
         
         if modelo is None:
             return jsonify({'error': 'No hay modelos disponibles'}), 500
+
+        # Detección inteligente para forzar modo agente cuando se necesite información actual
+        palabras_actualidad = [
+            'noticias', 'news', 'actualidad', 'hoy', 'today', 'actual', 'reciente', 
+            'precio', 'price', 'cotización', 'último', 'latest', 'breaking',
+            'eventos', 'acontecimiento', 'qué pasó', 'qué está pasando'
+        ]
+        
+        necesita_busqueda_web = any(palabra in pregunta.lower() for palabra in palabras_actualidad)
+        
+        if necesita_busqueda_web and permitir_internet and modo == 'simple':
+            print(f"🔄 Detectada consulta que requiere información actual, cambiando a modo agente")
+            modo = 'agente'
 
         # Forzar modo simple si internet está deshabilitado y se intenta usar modos que requieren web
         if not permitir_internet and modo in ['agente', 'busqueda_rapida']:

@@ -13,7 +13,113 @@ let chatBody;
 let preguntaInput;
 let enviarBtn;
 let loadingTimer;
-let startTime;
+    agregarMensaje(pregunta, 'usuario');
+    
+    // Mostrar razonamiento en tiempo real
+    mostrarRazonamientoTiempoReal(modelo, pregunta);
+    
+    // Limpiar input y desactivar botón
+    preguntaInput.value = '';
+    setLoading(true);Time;
+
+// Estado global para razonamiento en tiempo real
+let currentThinkingSteps = [];
+let currentThinkingContainer = null;
+
+// Función para mostrar razonamiento en tiempo real
+function mostrarRazonamientoTiempoReal(modeloSeleccionado, pregunta) {
+    if (!modeloSeleccionado) return;
+    
+    // Crear contenedor temporal para el razonamiento
+    const chatBody = document.getElementById('chatBody');
+    const tempContainer = document.createElement('div');
+    tempContainer.className = 'message ia-message mb-3';
+    tempContainer.innerHTML = `
+        <div class="thinking-real-time bg-info bg-opacity-10 border border-info rounded p-3">
+            <h6 class="mb-2"><i class="fas fa-brain me-1"></i>Razonamiento en tiempo real...</h6>
+            <div id="thinking-steps"></div>
+            <div class="thinking-indicator">
+                <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
+                <small class="text-muted">Procesando...</small>
+            </div>
+        </div>
+    `;
+    
+    chatBody.appendChild(tempContainer);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    currentThinkingContainer = tempContainer;
+    
+    // Simular pasos de razonamiento progresivos
+    setTimeout(() => {
+        agregarPasoRazonamiento(`🔍 Analizando pregunta: "${pregunta}"`);
+    }, 500);
+    
+    setTimeout(() => {
+        if (modeloSeleccionado === 'deepseek-r1:8b') {
+            agregarPasoRazonamiento("🧠 Iniciando razonamiento avanzado paso a paso");
+        } else if (modeloSeleccionado === 'phi3') {
+            agregarPasoRazonamiento("⚡ Procesamiento rápido y eficiente activado");
+        } else {
+            agregarPasoRazonamiento("🤖 Procesando con modelo de IA especializado");
+        }
+    }, 1000);
+    
+    setTimeout(() => {
+        const internetHabilitado = document.getElementById('permitirInternet').checked;
+        if (internetHabilitado) {
+            agregarPasoRazonamiento("🌐 Verificando si necesita búsqueda web...");
+        } else {
+            agregarPasoRazonamiento("📚 Consultando base de conocimientos...");
+        }
+    }, 1500);
+    
+    // Para consultas de noticias, agregar más pasos específicos
+    if (pregunta.toLowerCase().includes('noticias') || pregunta.toLowerCase().includes('hoy')) {
+        setTimeout(() => {
+            agregarPasoRazonamiento("📰 Detectada consulta de noticias actuales");
+        }, 2000);
+        
+        setTimeout(() => {
+            if (document.getElementById('permitirInternet').checked) {
+                agregarPasoRazonamiento("🔄 Activando modo agente para búsqueda web");
+            }
+        }, 2500);
+    }
+}
+
+// Función para agregar paso de razonamiento
+function agregarPasoRazonamiento(paso) {
+    if (!currentThinkingContainer) return;
+    
+    const stepsContainer = currentThinkingContainer.querySelector('#thinking-steps');
+    const stepElement = document.createElement('div');
+    stepElement.className = 'thinking-step mb-1 p-2 border-start border-3 border-info bg-white rounded-end';
+    stepElement.innerHTML = `
+        <small class="text-muted">${new Date().toLocaleTimeString()}</small><br>
+        ${paso}
+    `;
+    
+    stepsContainer.appendChild(stepElement);
+    currentThinkingContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+// Función para finalizar razonamiento en tiempo real
+function finalizarRazonamientoTiempoReal() {
+    if (currentThinkingContainer) {
+        const indicator = currentThinkingContainer.querySelector('.thinking-indicator');
+        if (indicator) {
+            indicator.innerHTML = '<small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>Razonamiento completado</small>';
+        }
+        
+        setTimeout(() => {
+            if (currentThinkingContainer && currentThinkingContainer.parentNode) {
+                currentThinkingContainer.remove();
+            }
+            currentThinkingContainer = null;
+            currentThinkingSteps = [];
+        }, 2000);
+    }
+}
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
@@ -241,9 +347,17 @@ async function handleSubmit(e) {
         };
         
         updateLoadingProgress(100, 'Completado!');
+        
+        // Finalizar razonamiento en tiempo real
+        finalizarRazonamientoTiempoReal();
+        
         agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos, metadata, pensamientos);
     } catch (error) {
         console.error('Error:', error);
+        
+        // Finalizar razonamiento en tiempo real en caso de error
+        finalizarRazonamientoTiempoReal();
+        
         Swal.fire({
             icon: 'error',
             title: 'Error',
