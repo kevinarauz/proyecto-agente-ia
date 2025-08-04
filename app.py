@@ -46,6 +46,10 @@ class ChatLMStudio(BaseChatModel):
     temperature: float = Field(default=0.7, description="Temperatura para generación")
     max_tokens: int = Field(default=1000, description="Máximo número de tokens")
     
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._last_response = None  # Para almacenar la última respuesta con reasoning_content
+    
     def _generate(
         self,
         messages: List[BaseMessage],
@@ -113,8 +117,23 @@ class ChatLMStudio(BaseChatModel):
         result = response.json()
         content = result["choices"][0]["message"]["content"]
         
+        # Almacenar la respuesta completa para acceso posterior (reasoning_content, etc.)
+        self._last_response = result
+        
+        # Capturar reasoning_content si está disponible (para modelos de razonamiento como DeepSeek R1)
+        reasoning_content = None
+        if "choices" in result and len(result["choices"]) > 0:
+            choice = result["choices"][0]
+            if "message" in choice and "reasoning_content" in choice["message"]:
+                reasoning_content = choice["message"]["reasoning_content"]
+        
         # Return result
         message = AIMessage(content=content)
+        
+        # Añadir reasoning_content como metadata si está disponible
+        if reasoning_content:
+            message.additional_kwargs = {"reasoning_content": reasoning_content}
+            
         generation = ChatGeneration(message=message)
         return ChatResult(generations=[generation])
     
@@ -1227,15 +1246,43 @@ Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones c
                     ]
                 
                 try:
-                    respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
+                    resultado_chain = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
                     tiempo_fin = time.time()
                     duracion = round(tiempo_fin - tiempo_inicio, 2)
                     duracion_formateada = formatear_duracion(duracion)
                     
                     print(f"✅ Chat simple completado en {duracion_formateada}")
                     
-                    return jsonify({
-                        'respuesta': respuesta,
+                    # Extraer reasoning_content si está disponible (para modelos de razonamiento)
+                    reasoning_content = None
+                    respuesta_final = resultado_chain
+                    
+                    # Si el modelo es DeepSeek con LM Studio, intentar extraer reasoning de la respuesta
+                    if modelo_seleccionado == 'lmstudio-deepseek':
+                        # Acceder al modelo directamente para obtener la última respuesta
+                        modelo_instance = models[modelo_seleccionado]
+                        if hasattr(modelo_instance, '_last_response') and modelo_instance._last_response:
+                            last_response = modelo_instance._last_response
+                            if isinstance(last_response, dict) and "choices" in last_response:
+                                choice = last_response["choices"][0]
+                                if "message" in choice and "reasoning_content" in choice["message"]:
+                                    reasoning_content = choice["message"]["reasoning_content"]
+                                    pensamientos_proceso.append("🧠 Proceso de razonamiento capturado del modelo")
+                                    print(f"📝 Reasoning content encontrado: {len(reasoning_content)} caracteres")
+                    
+                    # Si no se encontró reasoning en _last_response, intentar extraerlo del resultado del chain
+                    if not reasoning_content and hasattr(resultado_chain, '__dict__'):
+                        # Buscar en los metadatos adicionales del mensaje
+                        try:
+                            # El resultado del chain puede contener información adicional
+                            if hasattr(resultado_chain, 'additional_kwargs'):
+                                reasoning_content = resultado_chain.additional_kwargs.get('reasoning_content')
+                        except:
+                            pass
+                    
+                    # Preparar respuesta con reasoning si está disponible
+                    respuesta_data = {
+                        'respuesta': respuesta_final,
                         'modo': 'simple',
                         'modelo_usado': modelo_seleccionado,
                         'pensamientos': pensamientos_proceso,
@@ -1246,9 +1293,17 @@ Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones c
                             'internetHabilitado': permitir_internet,
                             'iteraciones': 0,
                             'busquedas': 0,
-                            'razonamiento_visible': modelo_seleccionado == 'deepseek-r1:8b'
+                            'razonamiento_visible': modelo_seleccionado == 'deepseek-r1:8b' or reasoning_content is not None
                         }
-                    })
+                    }
+                    
+                    # Añadir reasoning_content si está disponible
+                    if reasoning_content:
+                        respuesta_data['reasoning_content'] = reasoning_content
+                        respuesta_data['metadata']['tiene_razonamiento'] = True
+                        print(f"📝 Reasoning content capturado ({len(reasoning_content)} caracteres)")
+                    
+                    return jsonify(respuesta_data)
                 
                 except Exception as model_error:
                     tiempo_fin = time.time()

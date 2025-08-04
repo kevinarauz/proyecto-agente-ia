@@ -698,7 +698,14 @@ async function handleSubmit(e) {
             mostrarProcesoRazonamientoReal(pensamientos, respuesta.modelo_usado);
         }
         
-        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos, metadata, pensamientos);
+        // Mostrar reasoning_content si está disponible (para modelos de razonamiento como DeepSeek)
+        let reasoningContent = null;
+        if (respuesta.reasoning_content) {
+            reasoningContent = respuesta.reasoning_content;
+            console.log('📝 Reasoning content recibido:', reasoningContent.length, 'caracteres');
+        }
+        
+        agregarMensaje(respuesta.respuesta, 'ia', respuesta.modo, respuesta.modelo_usado, pasos, metadata, pensamientos, reasoningContent);
     } catch (error) {
         console.error('Error:', error);
         
@@ -761,7 +768,7 @@ async function enviarPreguntaAPI(pregunta, modo, modelo, permitirInternet = true
 }
 
 // Agregar mensaje al chat
-function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = null, metadata = null, pensamientos = null) {
+function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = null, metadata = null, pensamientos = null, reasoningContent = null) {
     const mensajeDiv = document.createElement('div');
     const timestamp = new Date();
     const uniqueId = Date.now() + Math.random().toString(36).substr(2, 9);
@@ -920,6 +927,23 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
             `;
         }
         
+        // Agregar sección de reasoning si está disponible (para modelos como DeepSeek)
+        let reasoningSection = '';
+        if (reasoningContent && reasoningContent.trim()) {
+            reasoningSection = `
+                <div class="reasoning-section mt-3">
+                    <div class="reasoning-header" onclick="toggleReasoning(this)">
+                        <i class="fas fa-brain me-2"></i>
+                        <span>Proceso de Razonamiento</span>
+                        <i class="fas fa-chevron-down ms-auto reasoning-toggle"></i>
+                    </div>
+                    <div class="reasoning-content" style="display: none;">
+                        <pre class="reasoning-text">${reasoningContent}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
         mensajeDiv.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
                 <div class="flex-grow-1">
@@ -927,6 +951,7 @@ function agregarMensaje(texto, tipo, modo = null, modeloUsado = null, pasos = nu
                     ${texto}
                     ${procesoCompleto}
                     ${metadataInfo}
+                    ${reasoningSection}
                 </div>
                 <small class="text-muted ms-2">${formatearTiempo(timestamp)}</small>
             </div>
@@ -1911,3 +1936,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Función para alternar la visibilidad del reasoning
+function toggleReasoning(headerElement) {
+    const reasoningContent = headerElement.nextElementSibling;
+    const toggleIcon = headerElement.querySelector('.reasoning-toggle');
+    
+    if (reasoningContent.style.display === 'none') {
+        reasoningContent.style.display = 'block';
+        toggleIcon.classList.remove('fa-chevron-down');
+        toggleIcon.classList.add('fa-chevron-up');
+    } else {
+        reasoningContent.style.display = 'none';
+        toggleIcon.classList.remove('fa-chevron-up');
+        toggleIcon.classList.add('fa-chevron-down');
+    }
+}
