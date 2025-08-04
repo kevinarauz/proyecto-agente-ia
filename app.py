@@ -1716,6 +1716,128 @@ def control_lmstudio(action):
     except Exception as e:
         return jsonify({'error': f'Error en control de LM Studio: {str(e)}'}), 500
 
+@app.route('/api/models/ollama/individual/<model_name>/<action>', methods=['POST'])
+def control_ollama_individual(model_name, action):
+    """Controlar modelos individuales de Ollama"""
+    try:
+        import subprocess
+        import requests
+        
+        if action == 'run':
+            # Ejecutar modelo específico
+            try:
+                # Primero verificar si Ollama está ejecutándose
+                try:
+                    requests.get(f"{Config.OLLAMA_BASE_URL}/api/tags", timeout=3)
+                except:
+                    # Si Ollama no está ejecutándose, iniciarlo primero
+                    subprocess.Popen(
+                        ['ollama', 'serve'],
+                        creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                    )
+                    # Esperar un momento para que se inicie
+                    import time
+                    time.sleep(3)
+                
+                # Ejecutar el modelo en background
+                subprocess.Popen(
+                    ['ollama', 'run', model_name],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                )
+                
+                return jsonify({
+                    'message': f'Modelo {model_name} cargado exitosamente',
+                    'model': model_name,
+                    'status': 'running'
+                })
+            except Exception as e:
+                return jsonify({'error': f'Error al ejecutar modelo {model_name}: {str(e)}'}), 500
+                
+        elif action == 'stop':
+            # Detener modelo específico
+            try:
+                subprocess.run(['ollama', 'stop', model_name], check=True, timeout=10)
+                return jsonify({
+                    'message': f'Modelo {model_name} detenido exitosamente',
+                    'model': model_name,
+                    'status': 'stopped'
+                })
+            except subprocess.CalledProcessError as e:
+                return jsonify({'error': f'Error al detener modelo {model_name}: {str(e)}'}), 500
+            except subprocess.TimeoutExpired:
+                return jsonify({'error': f'Timeout al detener modelo {model_name}'}), 500
+                
+        else:
+            return jsonify({'error': 'Acción no válida. Use run o stop'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'Error en control individual de Ollama: {str(e)}'}), 500
+
+@app.route('/api/models/ollama/running', methods=['GET'])
+def get_running_ollama_models():
+    """Obtener modelos de Ollama que están ejecutándose actualmente"""
+    try:
+        import requests
+        
+        # Verificar si Ollama está ejecutándose
+        try:
+            # Intentar obtener información de modelos en ejecución
+            response = requests.get(f"{Config.OLLAMA_BASE_URL}/api/ps", timeout=5)
+            if response.status_code == 200:
+                running_models = response.json().get('models', [])
+                
+                # También obtener todos los modelos disponibles
+                tags_response = requests.get(f"{Config.OLLAMA_BASE_URL}/api/tags", timeout=5)
+                all_models = []
+                if tags_response.status_code == 200:
+                    all_models = tags_response.json().get('models', [])
+                
+                # Crear estructura de respuesta con estado de cada modelo
+                models_status = []
+                for model in all_models:
+                    model_name = model['name']
+                    is_running = any(rm['name'] == model_name for rm in running_models)
+                    
+                    model_info = {
+                        'name': model_name,
+                        'is_running': is_running,
+                        'size': model.get('size', 'Unknown'),
+                        'modified': model.get('modified_at', 'Unknown'),
+                        'digest': model.get('digest', '')[:12] if model.get('digest') else ''
+                    }
+                    
+                    # Si está ejecutándose, añadir información adicional
+                    if is_running:
+                        running_info = next((rm for rm in running_models if rm['name'] == model_name), None)
+                        if running_info:
+                            model_info.update({
+                                'vram_usage': running_info.get('size_vram', 0),
+                                'expires_at': running_info.get('expires_at', ''),
+                            })
+                    
+                    models_status.append(model_info)
+                
+                return jsonify({
+                    'ollama_available': True,
+                    'models': models_status,
+                    'running_count': len(running_models)
+                })
+            else:
+                return jsonify({
+                    'ollama_available': False,
+                    'models': [],
+                    'running_count': 0
+                })
+        except:
+            return jsonify({
+                'ollama_available': False,
+                'models': [],
+                'running_count': 0
+            })
+            
+    except Exception as e:
+        return jsonify({'error': f'Error al obtener modelos en ejecución: {str(e)}'}), 500
+
 if __name__ == '__main__':
     print("🤖 Iniciando aplicación de IA con Agentes...")
     print(f"🧠 Modelos disponibles: {', '.join(available_models)}")

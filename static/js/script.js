@@ -1279,13 +1279,19 @@ async function refreshModelsStatus() {
     `;
 
     try {
-        const response = await fetch('/api/models/status');
-        const data = await response.json();
+        // Obtener estado general y modelos en ejecución de Ollama
+        const [statusResponse, runningResponse] = await Promise.all([
+            fetch('/api/models/status'),
+            fetch('/api/models/ollama/running')
+        ]);
         
-        if (response.ok) {
-            displayModelsStatus(data);
+        const statusData = await statusResponse.json();
+        const runningData = await runningResponse.json();
+        
+        if (statusResponse.ok) {
+            displayModelsStatus(statusData, runningData);
         } else {
-            throw new Error(data.error || 'Error al obtener estado de modelos');
+            throw new Error(statusData.error || 'Error al obtener estado de modelos');
         }
     } catch (error) {
         console.error('Error:', error);
@@ -1300,14 +1306,14 @@ async function refreshModelsStatus() {
     }
 }
 
-function displayModelsStatus(data) {
+function displayModelsStatus(data, runningData) {
     const container = document.getElementById('modelsStatusContainer');
     
     let html = '';
     
-    // Ollama Status
+    // Ollama Status con control individual
     html += `
-        <div class="col-md-4 mb-3">
+        <div class="col-lg-6 mb-3">
             <div class="card h-100">
                 <div class="card-header ${data.ollama.available ? 'bg-success' : 'bg-danger'} text-white">
                     <h6 class="mb-0">
@@ -1316,33 +1322,66 @@ function displayModelsStatus(data) {
                         <span class="badge ${data.ollama.available ? 'bg-light text-success' : 'bg-light text-danger'} ms-2">
                             ${data.ollama.available ? 'Online' : 'Offline'}
                         </span>
+                        ${runningData.ollama_available && runningData.running_count > 0 ? 
+                            `<span class="badge bg-warning text-dark ms-1">${runningData.running_count} ejecutándose</span>` : ''}
                     </h6>
                 </div>
                 <div class="card-body p-3">
                     ${data.ollama.available ? `
                         <div class="mb-2">
-                            <small class="text-muted">Modelos disponibles (${data.ollama.models.length}):</small>
+                            <small class="text-muted">Control Individual de Modelos:</small>
                         </div>
-                        <div class="models-list" style="max-height: 120px; overflow-y: auto;">
-                            ${data.ollama.models.map(model => `
-                                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
-                                    <small class="text-truncate" title="${model.name}">
-                                        <i class="fas fa-robot me-1 text-primary"></i>
-                                        ${model.name}
-                                    </small>
-                                    <small class="text-muted">${formatSize(model.size)}</small>
-                                </div>
-                            `).join('')}
+                        <div class="models-list" style="max-height: 200px; overflow-y: auto;">
+                            ${(runningData.models || data.ollama.models).map(model => {
+                                const modelName = model.name || model.name;
+                                const isRunning = model.is_running || false;
+                                const size = model.size ? formatSize(model.size) : 'N/A';
+                                
+                                return `
+                                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                        <div class="d-flex align-items-center">
+                                            <div class="status-indicator me-2">
+                                                <i class="fas fa-circle ${isRunning ? 'text-success' : 'text-secondary'}" 
+                                                   title="${isRunning ? 'Modelo en ejecución' : 'Modelo detenido'}"></i>
+                                            </div>
+                                            <div>
+                                                <small class="d-block fw-bold" title="${modelName}">
+                                                    ${modelName.length > 20 ? modelName.substring(0, 20) + '...' : modelName}
+                                                </small>
+                                                <small class="text-muted">${size}</small>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-1">
+                                            ${isRunning ? `
+                                                <button class="btn btn-outline-danger btn-sm" 
+                                                        onclick="controlOllamaModel('${modelName}', 'stop')"
+                                                        title="Detener modelo">
+                                                    <i class="fas fa-stop"></i>
+                                                </button>
+                                            ` : `
+                                                <button class="btn btn-outline-success btn-sm" 
+                                                        onclick="controlOllamaModel('${modelName}', 'run')"
+                                                        title="Ejecutar modelo">
+                                                    <i class="fas fa-play"></i>
+                                                </button>
+                                            `}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
-                        <div class="d-flex gap-1 mt-2">
-                            <button class="btn btn-outline-danger btn-sm" onclick="controlOllama('stop')">
-                                <i class="fas fa-stop"></i> Detener
+                        <div class="d-flex gap-1 mt-3">
+                            <button class="btn btn-outline-warning btn-sm" onclick="controlOllama('stop')">
+                                <i class="fas fa-power-off"></i> Detener Ollama
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" onclick="refreshModelsStatus()">
+                                <i class="fas fa-sync"></i> Actualizar
                             </button>
                         </div>
                     ` : `
                         <p class="text-muted mb-2">Ollama no está ejecutándose</p>
                         <button class="btn btn-outline-success btn-sm" onclick="controlOllama('start')">
-                            <i class="fas fa-play"></i> Iniciar
+                            <i class="fas fa-play"></i> Iniciar Ollama
                         </button>
                     `}
                 </div>
@@ -1352,7 +1391,7 @@ function displayModelsStatus(data) {
     
     // LM Studio Status
     html += `
-        <div class="col-md-4 mb-3">
+        <div class="col-lg-3 mb-3">
             <div class="card h-100">
                 <div class="card-header ${data.lmstudio.available ? 'bg-success' : 'bg-warning'} text-white">
                     <h6 class="mb-0">
@@ -1371,22 +1410,24 @@ function displayModelsStatus(data) {
                         <div class="models-list" style="max-height: 120px; overflow-y: auto;">
                             ${data.lmstudio.models.map(model => `
                                 <div class="py-1 border-bottom">
-                                    <small class="text-truncate d-block" title="${model.id}">
-                                        <i class="fas fa-robot me-1 text-success"></i>
-                                        ${model.id}
-                                    </small>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-circle text-success me-2"></i>
+                                        <small class="text-truncate" title="${model.id}">
+                                            ${model.id.length > 15 ? model.id.substring(0, 15) + '...' : model.id}
+                                        </small>
+                                    </div>
                                 </div>
                             `).join('')}
                         </div>
                         <div class="mt-2">
                             <button class="btn btn-outline-warning btn-sm" onclick="controlLMStudio('stop')">
-                                <i class="fas fa-stop"></i> Instrucciones
+                                <i class="fas fa-stop"></i> Info
                             </button>
                         </div>
                     ` : `
                         <p class="text-muted mb-2">LM Studio no está ejecutándose</p>
                         <button class="btn btn-outline-success btn-sm" onclick="controlLMStudio('start')">
-                            <i class="fas fa-play"></i> Instrucciones
+                            <i class="fas fa-play"></i> Info
                         </button>
                     `}
                 </div>
@@ -1396,7 +1437,7 @@ function displayModelsStatus(data) {
     
     // Google Gemini Status
     html += `
-        <div class="col-md-4 mb-3">
+        <div class="col-lg-3 mb-3">
             <div class="card h-100">
                 <div class="card-header ${data.gemini.available ? 'bg-success' : 'bg-secondary'} text-white">
                     <h6 class="mb-0">
@@ -1409,10 +1450,10 @@ function displayModelsStatus(data) {
                 </div>
                 <div class="card-body p-3">
                     ${data.gemini.available ? `
-                        <p class="text-success mb-0">
-                            <i class="fas fa-check-circle me-1"></i>
-                            API Key configurada correctamente
-                        </p>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-circle text-success me-2"></i>
+                            <small class="text-success">API Key configurada</small>
+                        </div>
                         <small class="text-muted">Modelo: Gemini-1.5-Flash</small>
                     ` : `
                         <p class="text-muted mb-2">API Key no configurada</p>
@@ -1437,6 +1478,60 @@ function formatSize(size) {
         return `${size.toFixed(1)} ${units[i]}`;
     }
     return size || 'N/A';
+}
+
+async function controlOllamaModel(modelName, action) {
+    try {
+        // Mostrar indicador de carga para el botón específico
+        const buttons = document.querySelectorAll(`button[onclick*="${modelName}"]`);
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        });
+
+        const response = await fetch(`/api/models/ollama/individual/${encodeURIComponent(modelName)}/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Mostrar notificación de éxito
+            Swal.fire({
+                icon: 'success',
+                title: `Modelo ${modelName}`,
+                text: data.message,
+                timer: 2000,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
+            
+            // Actualizar estado después de un breve delay
+            setTimeout(refreshModelsStatus, 1500);
+        } else {
+            throw new Error(data.error || `Error al ${action === 'run' ? 'ejecutar' : 'detener'} modelo`);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        
+        // Restaurar botones
+        const buttons = document.querySelectorAll(`button[onclick*="${modelName}"]`);
+        buttons.forEach(btn => {
+            btn.disabled = false;
+            btn.innerHTML = action === 'run' ? '<i class="fas fa-play"></i>' : '<i class="fas fa-stop"></i>';
+        });
+        
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message,
+            confirmButtonColor: '#007bff'
+        });
+    }
 }
 
 async function controlOllama(action) {
@@ -1521,4 +1616,24 @@ async function controlLMStudio(action) {
 document.addEventListener('DOMContentLoaded', function() {
     // Cargar estado inicial después de un breve delay
     setTimeout(refreshModelsStatus, 1000);
+    
+    // Auto-actualizar cada 10 segundos si está visible la sección
+    setInterval(() => {
+        const modelsSection = document.getElementById('modelsStatusContainer');
+        if (modelsSection && isElementInViewport(modelsSection)) {
+            refreshModelsStatus();
+        }
+    }, 10000);
 });
+
+// Función para verificar si un elemento está visible en viewport
+function isElementInViewport(el) {
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return (
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
+}
