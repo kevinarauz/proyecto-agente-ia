@@ -904,7 +904,20 @@ Responde de manera clara y útil con estos datos actuales."""
                             
                             respuesta_formateada = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_clima})
                             
-                            return jsonify({
+                            # Extraer reasoning_content si está disponible (para modelos como DeepSeek)
+                            reasoning_content = None
+                            if modelo_seleccionado == 'lmstudio-deepseek':
+                                print(f"🔍 DEBUG: Extrayendo reasoning del clima para DeepSeek")
+                                modelo_instance = models[modelo_seleccionado]
+                                if hasattr(modelo_instance, '_last_response') and modelo_instance._last_response:
+                                    last_response = modelo_instance._last_response
+                                    if isinstance(last_response, dict) and "choices" in last_response:
+                                        choice = last_response["choices"][0]
+                                        if "message" in choice and "reasoning_content" in choice["message"]:
+                                            reasoning_content = choice["message"]["reasoning_content"]
+                                            print(f"📝 Reasoning content del clima encontrado: {len(reasoning_content)} caracteres")
+                            
+                            respuesta_data = {
                                 'respuesta': respuesta_formateada,
                                 'modo': 'clima_directo_agente',
                                 'modelo_usado': modelo_seleccionado,
@@ -925,7 +938,15 @@ Responde de manera clara y útil con estos datos actuales."""
                                     'internetHabilitado': permitir_internet,
                                     'tipo_consulta': 'clima_optimizada'
                                 }
-                            })
+                            }
+                            
+                            # Añadir reasoning_content si está disponible
+                            if reasoning_content:
+                                respuesta_data['reasoning_content'] = reasoning_content
+                                respuesta_data['metadata']['tiene_razonamiento'] = True
+                                print(f"📝 Reasoning content del clima capturado ({len(reasoning_content)} caracteres)")
+                            
+                            return jsonify(respuesta_data)
                     
                 except Exception as e:
                     print(f"⚠️ Error en consulta de clima optimizada: {e}")
