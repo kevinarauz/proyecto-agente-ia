@@ -1258,28 +1258,60 @@ Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones c
                     reasoning_content = None
                     respuesta_final = resultado_chain
                     
+                    # DEBUG: Añadir logging detallado para depuración
+                    print(f"🔍 DEBUG: Modelo seleccionado: {modelo_seleccionado}")
+                    print(f"🔍 DEBUG: Tipo de resultado_chain: {type(resultado_chain)}")
+                    
                     # Si el modelo es DeepSeek con LM Studio, intentar extraer reasoning de la respuesta
                     if modelo_seleccionado == 'lmstudio-deepseek':
+                        print(f"🔍 DEBUG: Procesando modelo DeepSeek para extraer reasoning_content")
+                        
                         # Acceder al modelo directamente para obtener la última respuesta
                         modelo_instance = models[modelo_seleccionado]
+                        print(f"🔍 DEBUG: Modelo instance obtenido: {modelo_instance}")
+                        
                         if hasattr(modelo_instance, '_last_response') and modelo_instance._last_response:
                             last_response = modelo_instance._last_response
+                            print(f"🔍 DEBUG: _last_response encontrado: {type(last_response)}")
+                            print(f"🔍 DEBUG: _last_response keys: {last_response.keys() if isinstance(last_response, dict) else 'No es dict'}")
+                            
                             if isinstance(last_response, dict) and "choices" in last_response:
                                 choice = last_response["choices"][0]
-                                if "message" in choice and "reasoning_content" in choice["message"]:
-                                    reasoning_content = choice["message"]["reasoning_content"]
-                                    pensamientos_proceso.append("🧠 Proceso de razonamiento capturado del modelo")
-                                    print(f"📝 Reasoning content encontrado: {len(reasoning_content)} caracteres")
+                                print(f"🔍 DEBUG: Choice keys: {choice.keys() if isinstance(choice, dict) else 'No es dict'}")
+                                
+                                if "message" in choice:
+                                    message = choice["message"]
+                                    print(f"🔍 DEBUG: Message keys: {message.keys() if isinstance(message, dict) else 'No es dict'}")
+                                    
+                                    if "reasoning_content" in message:
+                                        reasoning_content = message["reasoning_content"]
+                                        pensamientos_proceso.append("🧠 Proceso de razonamiento capturado del modelo")
+                                        print(f"📝 Reasoning content encontrado: {len(reasoning_content)} caracteres")
+                                        print(f"🔍 DEBUG: Reasoning content preview: {reasoning_content[:200]}...")
+                                    else:
+                                        print(f"⚠️ DEBUG: No se encontró 'reasoning_content' en message")
+                                else:
+                                    print(f"⚠️ DEBUG: No se encontró 'message' en choice")
+                            else:
+                                print(f"⚠️ DEBUG: No se encontró 'choices' en last_response o no es dict")
+                        else:
+                            print(f"⚠️ DEBUG: No se encontró _last_response o está vacío")
                     
                     # Si no se encontró reasoning en _last_response, intentar extraerlo del resultado del chain
                     if not reasoning_content and hasattr(resultado_chain, '__dict__'):
+                        print(f"🔍 DEBUG: Intentando extraer reasoning del resultado del chain")
                         # Buscar en los metadatos adicionales del mensaje
                         try:
                             # El resultado del chain puede contener información adicional
                             if hasattr(resultado_chain, 'additional_kwargs'):
                                 reasoning_content = resultado_chain.additional_kwargs.get('reasoning_content')
-                        except:
-                            pass
+                                if reasoning_content:
+                                    print(f"📝 DEBUG: Reasoning encontrado en additional_kwargs: {len(reasoning_content)} caracteres")
+                        except Exception as e:
+                            print(f"⚠️ DEBUG: Error extrayendo del chain: {e}")
+                    
+                    if not reasoning_content:
+                        print(f"⚠️ DEBUG: No se pudo extraer reasoning_content de ninguna fuente")
                     
                     # Preparar respuesta con reasoning si está disponible
                     respuesta_data = {
