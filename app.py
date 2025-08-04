@@ -201,14 +201,25 @@ try:
             max_tokens=Config.MAX_TOKENS
         )
         print("✅ LM Studio (Mistral 7B) configurado correctamente")
+        
+        # Configurar DeepSeek Coder
+        models['lmstudio-deepseek'] = ChatLMStudio(
+            model=Config.LMSTUDIO_MODEL_DEEPSEEK,
+            base_url=Config.LMSTUDIO_BASE_URL,
+            temperature=Config.DEFAULT_TEMPERATURE,
+            max_tokens=Config.MAX_TOKENS
+        )
+        print("✅ LM Studio (DeepSeek Coder) configurado correctamente")
     else:
         print("⚠️ LM Studio no disponible")
         models['lmstudio-gemma'] = None
         models['lmstudio-mistral'] = None
+        models['lmstudio-deepseek'] = None
 except Exception as e:
     print(f"⚠️ LM Studio no disponible: {e}")
     models['lmstudio-gemma'] = None
     models['lmstudio-mistral'] = None
+    models['lmstudio-deepseek'] = None
 
 # Verificar que al menos un modelo esté disponible
 available_models = [k for k, v in models.items() if v is not None]
@@ -637,6 +648,33 @@ IMPORTANTE: Siempre usa este formato estructurado para mostrar tu proceso de pen
             ("user", "{pregunta}")
         ])
     
+    elif model_name == 'lmstudio-deepseek':
+        return ChatPromptTemplate.from_messages([
+            ("system", """Eres DeepSeek Coder ejecutándose en LM Studio, un asistente especializado en programación y desarrollo técnico.
+
+ESPECIALIDADES TÉCNICAS:
+- Análisis y explicación de código
+- Solución de problemas de programación
+- Mejores prácticas de desarrollo
+- Debugging y optimización
+- Arquitectura de software
+
+FORMATO DE RESPUESTA:
+🔧 **ANÁLISIS TÉCNICO:** [Evaluación del problema o consulta]
+
+💻 **SOLUCIÓN/EXPLICACIÓN:**
+• **Concepto:** [Explicación del concepto principal]
+• **Implementación:** [Detalles técnicos o código cuando sea relevante]
+• **Consideraciones:** [Aspectos importantes a tener en cuenta]
+
+📝 **CÓDIGO DE EJEMPLO:** [Si aplica, proporcionar ejemplos de código]
+
+⚡ **OPTIMIZACIÓN:** [Sugerencias de mejora o alternativas]
+
+IMPORTANTE: Siempre enfócate en proporcionar soluciones técnicas precisas y ejemplos prácticos."""),
+            ("user", "{pregunta}")
+        ])
+    
     elif model_name == 'gemma:2b':
         return ChatPromptTemplate.from_messages([
             ("system", """Eres un asistente útil. Responde de forma clara y completa.
@@ -713,10 +751,15 @@ for model_name, model_instance in models.items():
         
         # Configurar chain con temperatura si es posible
         ollama_models_list = ['llama3', 'deepseek-coder', 'deepseek-r1:8b', 'phi3', 'gemma:2b']
+        lmstudio_models_list = ['lmstudio-gemma', 'lmstudio-mistral', 'lmstudio-deepseek']
         
         if model_name in ollama_models_list:
             # Para modelos de Ollama, configurar directamente sin bind (temperatura no es compatible)
             simple_chains[model_name] = model_prompt | model_instance | StrOutputParser()
+        elif model_name in lmstudio_models_list:
+            # Para modelos de LM Studio, configurar con temperatura
+            configured_model = model_instance
+            simple_chains[model_name] = model_prompt | configured_model | StrOutputParser()
         elif model_name == 'gemini-1.5-flash':
             # Para Gemini, configurar temperatura usando bind
             configured_model = model_instance.bind(temperature=Config.DEFAULT_TEMPERATURE)
