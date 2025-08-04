@@ -6,6 +6,7 @@ import io
 import logging
 import re
 import traceback
+import subprocess
 from typing import Optional, Union, Tuple
 from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
