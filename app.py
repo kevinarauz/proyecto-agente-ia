@@ -104,7 +104,7 @@ class ChatLMStudio(BaseChatModel):
                 "stream": False
             },
             headers={"Content-Type": "application/json"},
-            timeout=120
+            timeout=300  # Aumentar timeout a 5 minutos para modelos lentos
         )
         
         if response.status_code != 200:
@@ -121,6 +121,25 @@ class ChatLMStudio(BaseChatModel):
     @property
     def _llm_type(self) -> str:
         return "lm-studio-api"
+
+def generar_respuesta_fallback(pregunta: str) -> str:
+    """Genera una respuesta de fallback simple para casos de timeout"""
+    pregunta_lower = pregunta.lower()
+    
+    if 'java' in pregunta_lower:
+        return """Java es un lenguaje de programación orientado a objetos desarrollado por Oracle. 
+Sus características principales son: multiplataforma (JVM), orientado a objetos, robusto y seguro. 
+Se usa principalmente en aplicaciones empresariales, Android y desarrollo web."""
+    elif 'python' in pregunta_lower:
+        return """Python es un lenguaje de programación interpretado y de alto nivel. 
+Es conocido por su sintaxis simple, versatilidad y amplia comunidad. 
+Se usa en desarrollo web, ciencia de datos, IA, automatización y más."""
+    elif 'javascript' in pregunta_lower:
+        return """JavaScript es un lenguaje de programación interpretado usado principalmente para desarrollo web. 
+Permite crear interactividad en páginas web y también se usa en el backend con Node.js."""
+    else:
+        return f"""Disculpa, el modelo tardó demasiado en procesar tu consulta sobre "{pregunta}". 
+Por favor, intenta reformular la pregunta de manera más específica o prueba con otro modelo."""
 
 # Cargar variables de entorno
 load_dotenv()
@@ -206,8 +225,8 @@ try:
         models['lmstudio-deepseek'] = ChatLMStudio(
             model=Config.LMSTUDIO_MODEL_DEEPSEEK,
             base_url=Config.LMSTUDIO_BASE_URL,
-            temperature=Config.DEFAULT_TEMPERATURE,
-            max_tokens=Config.MAX_TOKENS
+            temperature=0.3,  # Temperatura más baja para respuestas más rápidas y directas
+            max_tokens=800    # Reducir tokens para respuestas más concisas
         )
         print("✅ LM Studio (DeepSeek Coder) configurado correctamente")
     else:
@@ -650,28 +669,26 @@ IMPORTANTE: Siempre usa este formato estructurado para mostrar tu proceso de pen
     
     elif model_name == 'lmstudio-deepseek':
         return ChatPromptTemplate.from_messages([
-            ("system", """Eres DeepSeek Coder ejecutándose en LM Studio, un asistente especializado en programación y desarrollo técnico.
+            ("system", """Eres DeepSeek Coder ejecutándose en LM Studio. Proporciona respuestas técnicas claras y directas.
 
-ESPECIALIDADES TÉCNICAS:
-- Análisis y explicación de código
-- Solución de problemas de programación
-- Mejores prácticas de desarrollo
-- Debugging y optimización
-- Arquitectura de software
+INSTRUCCIONES:
+- Respuestas concisas pero completas
+- Enfócate en aspectos técnicos cuando sea relevante
+- Usa formato claro con viñetas o numeración
+- Evita explicaciones excesivamente largas
+- Proporciona ejemplos de código solo cuando sea necesario
 
 FORMATO DE RESPUESTA:
-🔧 **ANÁLISIS TÉCNICO:** [Evaluación del problema o consulta]
+🔧 **EXPLICACIÓN TÉCNICA:** [Definición clara y directa]
 
-💻 **SOLUCIÓN/EXPLICACIÓN:**
-• **Concepto:** [Explicación del concepto principal]
-• **Implementación:** [Detalles técnicos o código cuando sea relevante]
-• **Consideraciones:** [Aspectos importantes a tener en cuenta]
+💻 **CARACTERÍSTICAS PRINCIPALES:**
+• [Característica 1]
+• [Característica 2] 
+• [Característica 3]
 
-📝 **CÓDIGO DE EJEMPLO:** [Si aplica, proporcionar ejemplos de código]
+📝 **EJEMPLO PRÁCTICO:** [Solo si es relevante y breve]
 
-⚡ **OPTIMIZACIÓN:** [Sugerencias de mejora o alternativas]
-
-IMPORTANTE: Siempre enfócate en proporcionar soluciones técnicas precisas y ejemplos prácticos."""),
+Mantén las respuestas enfocadas y útiles."""),
             ("user", "{pregunta}")
         ])
     
@@ -1201,29 +1218,86 @@ Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones c
                         "📝 Estructurando respuesta paso a paso",
                         "🔄 Validando coherencia y completitud"
                     ]
+                elif modelo_seleccionado.startswith('lmstudio-'):
+                    # Para modelos LM Studio, mostrar proceso de conexión
+                    pensamientos_proceso = [
+                        f"🔧 Conectando con LM Studio ({modelo_seleccionado})",
+                        f"📝 Procesando consulta: '{pregunta}'",
+                        "⚡ Generando respuesta técnica especializada"
+                    ]
                 
-                respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
-                tiempo_fin = time.time()
-                duracion = round(tiempo_fin - tiempo_inicio, 2)
-                duracion_formateada = formatear_duracion(duracion)
+                try:
+                    respuesta = simple_chains[modelo_seleccionado].invoke({"pregunta": pregunta})
+                    tiempo_fin = time.time()
+                    duracion = round(tiempo_fin - tiempo_inicio, 2)
+                    duracion_formateada = formatear_duracion(duracion)
+                    
+                    print(f"✅ Chat simple completado en {duracion_formateada}")
+                    
+                    return jsonify({
+                        'respuesta': respuesta,
+                        'modo': 'simple',
+                        'modelo_usado': modelo_seleccionado,
+                        'pensamientos': pensamientos_proceso,
+                        'metadata': {
+                            'duracion': duracion,
+                            'duracion_formateada': duracion_formateada,
+                            'timestamp': time.time(),
+                            'internetHabilitado': permitir_internet,
+                            'iteraciones': 0,
+                            'busquedas': 0,
+                            'razonamiento_visible': modelo_seleccionado == 'deepseek-r1:8b'
+                        }
+                    })
                 
-                print(f"✅ Chat simple completado en {duracion_formateada}")
-                
-                return jsonify({
-                    'respuesta': respuesta,
-                    'modo': 'simple',
-                    'modelo_usado': modelo_seleccionado,
-                    'pensamientos': pensamientos_proceso,
-                    'metadata': {
-                        'duracion': duracion,
-                        'duracion_formateada': duracion_formateada,
-                        'timestamp': time.time(),
-                        'internetHabilitado': permitir_internet,
-                        'iteraciones': 0,
-                        'busquedas': 0,
-                        'razonamiento_visible': modelo_seleccionado == 'deepseek-r1:8b'
-                    }
-                })
+                except Exception as model_error:
+                    tiempo_fin = time.time()
+                    duracion = round(tiempo_fin - tiempo_inicio, 2)
+                    duracion_formateada = formatear_duracion(duracion)
+                    
+                    error_msg = str(model_error)
+                    
+                    # Manejo específico para timeout de LM Studio
+                    if "ReadTimeout" in error_msg or "timed out" in error_msg:
+                        if modelo_seleccionado.startswith('lmstudio-'):
+                            return jsonify({
+                                'respuesta': f"""⏰ **Timeout del modelo LM Studio**
+
+El modelo {modelo_seleccionado} está tardando más de lo esperado en responder. Esto puede deberse a:
+
+🔧 **Posibles causas:**
+• El modelo está procesando una respuesta compleja
+• LM Studio está sobrecargado o funcionando lento
+• La consulta requiere mucho tiempo de procesamiento
+
+💡 **Sugerencias:**
+• Intenta con una pregunta más específica
+• Prueba otro modelo disponible
+• Verifica que LM Studio esté funcionando correctamente
+
+⚡ **Respuesta rápida para tu pregunta "{pregunta}":**
+{generar_respuesta_fallback(pregunta)}
+
+*Tiempo transcurrido: {duracion_formateada}*""",
+                                'modo': 'timeout_fallback',
+                                'modelo_usado': modelo_seleccionado,
+                                'pensamientos': pensamientos_proceso + [
+                                    f"⏰ Timeout después de {duracion_formateada}",
+                                    "🔄 Generando respuesta de fallback"
+                                ],
+                                'metadata': {
+                                    'duracion': duracion,
+                                    'duracion_formateada': duracion_formateada,
+                                    'timestamp': time.time(),
+                                    'internetHabilitado': permitir_internet,
+                                    'error': 'timeout',
+                                    'iteraciones': 0,
+                                    'busquedas': 0
+                                }
+                            })
+                    
+                    # Para otros errores, propagar el error
+                    raise model_error
             else:
                 print(f"❌ DEBUG: Chain no encontrada para {modelo_seleccionado}")
                 return jsonify({'error': f'Modelo {modelo_seleccionado} no disponible'}), 400
