@@ -1267,8 +1267,23 @@ async function consultarClimaRapido() {
 // CONTROL DE MODELOS
 // ========================
 
+// Variables para controlar el auto-refresh
+let autoRefreshEnabled = true;
+let autoRefreshInterval = null;
+let lastRefreshTime = 0;
+let userInteractionTimeout = null;
+
 async function refreshModelsStatus() {
+    // Evitar múltiples refreshes muy seguidos
+    const now = Date.now();
+    if (now - lastRefreshTime < 3000) { // Mínimo 3 segundos entre refreshes
+        return;
+    }
+    lastRefreshTime = now;
+    
     const container = document.getElementById('modelsStatusContainer');
+    if (!container) return;
+    
     container.innerHTML = `
         <div class="col-12 text-center">
             <div class="spinner-border text-primary" role="status">
@@ -1482,6 +1497,10 @@ function formatSize(size) {
 
 async function controlOllamaModel(modelName, action) {
     try {
+        // Pausar auto-refresh temporalmente durante la acción
+        const wasEnabled = autoRefreshEnabled;
+        autoRefreshEnabled = false;
+        
         // Mostrar indicador de carga para el botón específico
         const buttons = document.querySelectorAll(`button[onclick*="${modelName}"]`);
         buttons.forEach(btn => {
@@ -1511,8 +1530,14 @@ async function controlOllamaModel(modelName, action) {
             });
             
             // Actualizar estado después de un breve delay
-            setTimeout(refreshModelsStatus, 1500);
+            setTimeout(() => {
+                if (autoRefreshEnabled || wasEnabled) {
+                    refreshModelsStatus();
+                    autoRefreshEnabled = wasEnabled; // Restaurar estado anterior
+                }
+            }, 1500);
         } else {
+            autoRefreshEnabled = wasEnabled; // Restaurar estado anterior
             throw new Error(data.error || `Error al ${action === 'run' ? 'ejecutar' : 'detener'} modelo`);
         }
     } catch (error) {
@@ -1554,7 +1579,11 @@ async function controlOllama(action) {
             });
             
             // Actualizar estado después de 2 segundos
-            setTimeout(refreshModelsStatus, 2000);
+            setTimeout(() => {
+                if (autoRefreshEnabled) {
+                    refreshModelsStatus();
+                }
+            }, 2000);
         } else {
             throw new Error(data.error || 'Error al controlar Ollama');
         }
@@ -1597,7 +1626,11 @@ async function controlLMStudio(action) {
             });
             
             // Actualizar estado después de unos segundos
-            setTimeout(refreshModelsStatus, 3000);
+            setTimeout(() => {
+                if (autoRefreshEnabled) {
+                    refreshModelsStatus();
+                }
+            }, 3000);
         } else {
             throw new Error(data.error || 'Error al controlar LM Studio');
         }
@@ -1612,30 +1645,87 @@ async function controlLMStudio(action) {
     }
 }
 
+// Función para iniciar el auto-refresh
+function startAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    autoRefreshInterval = setInterval(() => {
+        if (!autoRefreshEnabled) return;
+        
+        const modelsSection = document.getElementById('modelsStatusContainer');
+        // Solo actualizar si la sección está visible Y ha pasado suficiente tiempo
+        if (modelsSection && isElementInViewport(modelsSection)) {
+            const now = Date.now();
+            if (now - lastRefreshTime > 30000) { // Mínimo 30 segundos entre auto-refreshes
+                refreshModelsStatus();
+            }
+        }
+    }, 30000); // Cada 30 segundos en lugar de 10
+}
+
+// Función para pausar/reanudar auto-refresh
+function toggleAutoRefresh() {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    return autoRefreshEnabled;
+}
+
+// Función para manejar el botón de pausa/reanudación en la UI
+function toggleAutoRefreshUI() {
+    const isEnabled = toggleAutoRefresh();
+    const icon = document.getElementById('autoRefreshIcon');
+    const button = document.getElementById('autoRefreshToggle');
+    
+    if (isEnabled) {
+        icon.className = 'fas fa-pause';
+        button.title = 'Pausar auto-actualización';
+        button.className = 'btn btn-outline-light btn-sm me-1';
+    } else {
+        icon.className = 'fas fa-play';
+        button.title = 'Reanudar auto-actualización';
+        button.className = 'btn btn-outline-warning btn-sm me-1';
+    }
+}
+
 // Cargar estado de modelos al inicializar la página
 document.addEventListener('DOMContentLoaded', function() {
     // Cargar estado inicial después de un breve delay
-    setTimeout(refreshModelsStatus, 1000);
+    setTimeout(() => {
+        refreshModelsStatus();
+    }, 1000);
     
-    // Auto-actualizar cada 10 segundos si está visible la sección
-    setInterval(() => {
-        const modelsSection = document.getElementById('modelsStatusContainer');
-        if (modelsSection && isElementInViewport(modelsSection)) {
-            refreshModelsStatus();
-        }
-    }, 10000);
+    // Iniciar auto-refresh controlado
+    startAutoRefresh();
+    
+    // Pausar auto-refresh temporalmente cuando el usuario hace scroll
+    let scrollTimeout;
+    window.addEventListener('scroll', () => {
+        clearTimeout(scrollTimeout);
+        const wasEnabled = autoRefreshEnabled;
+        autoRefreshEnabled = false;
+        
+        scrollTimeout = setTimeout(() => {
+            autoRefreshEnabled = wasEnabled;
+        }, 5000); // Reanudar después de 5 segundos sin scroll
+    });
 });
 
 // Función para verificar si un elemento está visible en viewport
 function isElementInViewport(el) {
     if (!el) return false;
     const rect = el.getBoundingClientRect();
-    return (
-        rect.top >= 0 &&
-        rect.left >= 0 &&
-        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-    );
+    const windowHeight = (window.innerHeight || document.documentElement.clientHeight);
+    const windowWidth = (window.innerWidth || document.documentElement.clientWidth);
+    
+    // El elemento debe estar al menos 50% visible para considerarlo "en viewport"
+    const verticalVisible = rect.top < windowHeight && rect.bottom > 0;
+    const horizontalVisible = rect.left < windowWidth && rect.right > 0;
+    const areaVisible = Math.max(0, Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0)) *
+                       Math.max(0, Math.min(rect.right, windowWidth) - Math.max(rect.left, 0));
+    const totalArea = rect.width * rect.height;
+    
+    return verticalVisible && horizontalVisible && (areaVisible / totalArea) > 0.5;
 }
 
 // ========================

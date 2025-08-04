@@ -105,9 +105,14 @@
                         <h5 class="mb-0">
                             <i class="fas fa-server me-2"></i>
                             Control de Modelos
-                            <button class="btn btn-outline-light btn-sm float-end" onclick="refreshModelsStatus()">
-                                <i class="fas fa-sync-alt"></i> Actualizar
-                            </button>
+                            <div class="float-end">
+                                <button class="btn btn-outline-light btn-sm me-1" id="autoRefreshToggle" onclick="toggleAutoRefreshUI()" title="Pausar/Reanudar auto-actualización">
+                                    <i class="fas fa-pause" id="autoRefreshIcon"></i>
+                                </button>
+                                <button class="btn btn-outline-light btn-sm" onclick="refreshModelsStatus()">
+                                    <i class="fas fa-sync-alt"></i> Actualizar
+                                </button>
+                            </div>
                         </h5>
                     </div>
                     <div class="card-body">
