@@ -2,6 +2,10 @@ import os
 import json
 import requests
 import time
+import io
+import logging
+import re
+import traceback
 from typing import Optional, Union, Tuple
 from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
@@ -30,29 +34,17 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from typing import Any, List, Optional
+from pydantic import Field
 import requests
 
 class ChatLMStudio(BaseChatModel):
     """Chat model wrapper for LM Studio API."""
     
-    model: str
-    base_url: str
-    temperature: float
-    max_tokens: int
-    
-    def __init__(
-        self,
-        model: str,
-        base_url: str = "http://localhost:1234",
-        temperature: float = 0.7,
-        max_tokens: int = 1000,
-        **kwargs: Any,
-    ):
-        super().__init__(**kwargs)
-        self.model = model
-        self.base_url = base_url
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+    # Declarar explícitamente los campos que necesitamos
+    model: str = Field(description="Nombre del modelo a usar")
+    base_url: str = Field(default="http://localhost:1234", description="URL base del servidor LM Studio")
+    temperature: float = Field(default=0.7, description="Temperatura para generación")
+    max_tokens: int = Field(default=1000, description="Máximo número de tokens")
     
     def _generate(
         self,
@@ -64,13 +56,42 @@ class ChatLMStudio(BaseChatModel):
         """Generate chat completion."""
         # Convert messages to API format
         api_messages = []
+        
+        # Combinar mensajes del sistema con el primer mensaje del usuario
+        system_content = ""
+        user_messages = []
+        
         for msg in messages:
-            if isinstance(msg, HumanMessage):
-                api_messages.append({"role": "user", "content": msg.content})
+            if isinstance(msg, SystemMessage):
+                # Acumular contenido del sistema, asegurándonos de que sea string
+                content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                system_content += content + "\n\n"
+            elif isinstance(msg, HumanMessage):
+                user_messages.append(msg)
             elif isinstance(msg, AIMessage):
-                api_messages.append({"role": "assistant", "content": msg.content})
-            elif isinstance(msg, SystemMessage):
-                api_messages.append({"role": "system", "content": msg.content})
+                content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                api_messages.append({"role": "assistant", "content": content})
+        
+        # Si hay contenido del sistema, combinarlo con el primer mensaje del usuario
+        if system_content and user_messages:
+            first_user_msg = user_messages[0]
+            first_content = first_user_msg.content if isinstance(first_user_msg.content, str) else str(first_user_msg.content)
+            combined_content = f"{system_content.strip()}\n\nUsuario: {first_content}"
+            api_messages.insert(0, {"role": "user", "content": combined_content})
+            
+            # Agregar los mensajes restantes del usuario
+            for msg in user_messages[1:]:
+                user_content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                api_messages.append({"role": "user", "content": user_content})
+        else:
+            # Si no hay sistema, agregar mensajes del usuario normalmente
+            for msg in user_messages:
+                user_content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                api_messages.append({"role": "user", "content": user_content})
+        
+        # Asegurar que no hay mensajes vacíos
+        if not api_messages:
+            api_messages = [{"role": "user", "content": "Hola"}]
         
         # Make API request
         response = requests.post(
@@ -165,7 +186,9 @@ try:
     if Config.validate_lmstudio():
         models['lmstudio-mistral'] = ChatLMStudio(
             model=Config.LMSTUDIO_MODEL,
-            base_url=Config.LMSTUDIO_BASE_URL
+            base_url=Config.LMSTUDIO_BASE_URL,
+            temperature=Config.DEFAULT_TEMPERATURE,
+            max_tokens=Config.MAX_TOKENS
         )
         print("✅ LM Studio (Mistral) configurado correctamente")
     else:
