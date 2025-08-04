@@ -24,6 +24,83 @@ from langchain.tools import BaseTool
 from langchain_core.tools import Tool
 from config import Config
 
+# Definir ChatLMStudio directamente aquí para evitar problemas de importación
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.callbacks import CallbackManagerForLLMRun
+from typing import Any, List, Optional
+import requests
+
+class ChatLMStudio(BaseChatModel):
+    """Chat model wrapper for LM Studio API."""
+    
+    model: str
+    base_url: str
+    temperature: float
+    max_tokens: int
+    
+    def __init__(
+        self,
+        model: str,
+        base_url: str = "http://localhost:1234",
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        **kwargs: Any,
+    ):
+        super().__init__(**kwargs)
+        self.model = model
+        self.base_url = base_url
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+    
+    def _generate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """Generate chat completion."""
+        # Convert messages to API format
+        api_messages = []
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                api_messages.append({"role": "user", "content": msg.content})
+            elif isinstance(msg, AIMessage):
+                api_messages.append({"role": "assistant", "content": msg.content})
+            elif isinstance(msg, SystemMessage):
+                api_messages.append({"role": "system", "content": msg.content})
+        
+        # Make API request
+        response = requests.post(
+            f"{self.base_url}/v1/chat/completions",
+            json={
+                "model": self.model,
+                "messages": api_messages,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "stream": False
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=120
+        )
+        
+        if response.status_code != 200:
+            raise ValueError(f"LM Studio API error: {response.status_code} {response.text}")
+        
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
+        
+        # Return result
+        message = AIMessage(content=content)
+        generation = ChatGeneration(message=message)
+        return ChatResult(generations=[generation])
+    
+    @property
+    def _llm_type(self) -> str:
+        return "lm-studio-api"
+
 # Cargar variables de entorno
 load_dotenv()
 
@@ -83,19 +160,35 @@ except Exception as e:
     print(f"⚠️ Google Gemini no disponible: {e}")
     models['gemini-1.5-flash'] = None
 
+# Configurar LM Studio (API local)
+try:
+    if Config.validate_lmstudio():
+        models['lmstudio-mistral'] = ChatLMStudio(
+            model=Config.LMSTUDIO_MODEL,
+            base_url=Config.LMSTUDIO_BASE_URL
+        )
+        print("✅ LM Studio (Mistral) configurado correctamente")
+    else:
+        print("⚠️ LM Studio no disponible")
+        models['lmstudio-mistral'] = None
+except Exception as e:
+    print(f"⚠️ LM Studio no disponible: {e}")
+    models['lmstudio-mistral'] = None
+
 # Verificar que al menos un modelo esté disponible
 available_models = [k for k, v in models.items() if v is not None]
 if not available_models:
     print("❌ Error: No hay modelos disponibles")
     print("💡 Asegúrate de que:")
     print("   - Ollama esté ejecutándose con llama3 instalado, O")
-    print("   - Tengas GOOGLE_API_KEY configurada en .env")
+    print("   - Tengas GOOGLE_API_KEY configurada en .env, O")
+    print("   - LM Studio esté ejecutándose con un modelo cargado")
     exit(1)
 
 print(f"🎯 Modelos disponibles: {', '.join(available_models)}")
 
 # Función para obtener el modelo según la selección
-def get_model(model_name: str) -> Optional[Union[ChatOllama, ChatGoogleGenerativeAI]]:
+def get_model(model_name: str) -> Optional[Union[ChatOllama, ChatGoogleGenerativeAI, ChatLMStudio]]:
     """Obtiene el modelo solicitado o el primero disponible como fallback"""
     if model_name in models and models[model_name] is not None:
         return models[model_name]
