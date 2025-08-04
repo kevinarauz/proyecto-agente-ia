@@ -20,7 +20,8 @@ class Config:
     
     # LM Studio settings
     LMSTUDIO_BASE_URL = "http://localhost:1234"
-    LMSTUDIO_MODEL = "mistral-7b-instruct-v0.3"
+    LMSTUDIO_MODEL = "google/gemma-3-12b"
+    LMSTUDIO_MODEL_MISTRAL = "mistral-7b-instruct-v0.3"
     
     # LangChain settings
     LANGCHAIN_VERBOSE = True

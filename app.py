@@ -184,18 +184,30 @@ except Exception as e:
 # Configurar LM Studio (API local)
 try:
     if Config.validate_lmstudio():
-        models['lmstudio-mistral'] = ChatLMStudio(
+        # Configurar Google Gemma 3-12B
+        models['lmstudio-gemma'] = ChatLMStudio(
             model=Config.LMSTUDIO_MODEL,
             base_url=Config.LMSTUDIO_BASE_URL,
             temperature=Config.DEFAULT_TEMPERATURE,
             max_tokens=Config.MAX_TOKENS
         )
-        print("✅ LM Studio (Mistral) configurado correctamente")
+        print("✅ LM Studio (Gemma 3-12B) configurado correctamente")
+        
+        # Configurar Mistral 7B
+        models['lmstudio-mistral'] = ChatLMStudio(
+            model=Config.LMSTUDIO_MODEL_MISTRAL,
+            base_url=Config.LMSTUDIO_BASE_URL,
+            temperature=Config.DEFAULT_TEMPERATURE,
+            max_tokens=Config.MAX_TOKENS
+        )
+        print("✅ LM Studio (Mistral 7B) configurado correctamente")
     else:
         print("⚠️ LM Studio no disponible")
+        models['lmstudio-gemma'] = None
         models['lmstudio-mistral'] = None
 except Exception as e:
     print(f"⚠️ LM Studio no disponible: {e}")
+    models['lmstudio-gemma'] = None
     models['lmstudio-mistral'] = None
 
 # Verificar que al menos un modelo esté disponible
@@ -333,7 +345,7 @@ def busqueda_web_avanzada(query: str) -> str:
         print(f"⚠️ API DuckDuckGo falló: {e}")
     
     # Método 3: Para clima específico, usar nuestra API
-    if any(palabra in query.lower() for palabra in ['clima', 'weather', 'temperatura', 'temperature']):
+    if any(palabra in query.lower() for palabra in ['clima', 'weather', 'temperatura', 'temperature', 'tiempo']):
         try:
             # Extraer ciudad de la consulta
             ciudad = 'Quito'  # Default
@@ -679,7 +691,7 @@ def chat() -> Union[Response, Tuple[Response, int]]:
 
         if modo == 'agente' and permitir_internet and modelo_seleccionado in agents and agents[modelo_seleccionado] is not None:
             # Verificar si es una consulta de clima para usar endpoint especializado
-            if any(palabra in pregunta.lower() for palabra in ['clima', 'weather', 'temperatura', 'temp']):
+            if any(palabra in pregunta.lower() for palabra in ['clima', 'weather', 'temperatura', 'temp', 'tiempo']):
                 print(f"🌤️ Detectada consulta de clima, usando endpoint especializado")
                 try:
                     tiempo_inicio = time.time()
