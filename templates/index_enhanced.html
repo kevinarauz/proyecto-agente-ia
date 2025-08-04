@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agente IA Avanzado - Versión Mejorada</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Estilos específicos para la versión mejorada */
+        .workspace-container {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            height: 100vh;
+            gap: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+
+        .main-workspace {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .tools-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+
+        .tool-card {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-left: 4px solid #007bff;
+        }
+
+        .history-item:hover {
+            background: #e9ecef;
+        }
+
+        .upload-zone {
+            border: 2px dashed #007bff;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .upload-zone:hover {
+            border-color: #0056b3;
+            background: #f8f9fa;
+        }
+
+        .code-editor {
+            background: #2d3748;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            min-height: 200px;
+            width: 100%;
+            border: none;
+        }
+
+        .math-input {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .session-selector {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .feature-tab {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .feature-tab.active {
+            background: #0056b3;
+        }
+
+        .feature-tab:hover {
+            background: #0056b3;
+        }
+
+        .content-panel {
+            display: none;
+            padding: 20px;
+        }
+
+        .content-panel.active {
+            display: block;
+        }
+
+        .reasoning-enhanced {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+
+        .plot-container {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="workspace-container">
+        <!-- Sidebar izquierdo - Historial y Sesiones -->
+        <div class="sidebar">
+            <h3>📚 Historial</h3>
+            
+            <div class="session-selector">
+                <label>🔗 Sesión Actual:</label>
+                <select id="sessionSelect" onchange="cambiarSesion()">
+                    <option value="">Nueva Sesión</option>
+                </select>
+                <button onclick="nuevaSesion()" class="btn btn-sm">➕ Nueva</button>
+            </div>
+
+            <div id="historialContainer">
+                <p class="text-muted">No hay conversaciones en esta sesión</p>
+            </div>
+
+            <button onclick="cargarSesiones()" class="btn btn-outline-primary btn-sm mt-2">🔄 Actualizar</button>
+        </div>
+
+        <!-- Área principal de trabajo -->
+        <div class="main-workspace">
+            <!-- Pestañas de funcionalidades -->
+            <div style="padding: 20px; border-bottom: 1px solid #dee2e6;">
+                <button class="feature-tab active" onclick="mostrarPanel('chat')">💬 Chat IA</button>
+                <button class="feature-tab" onclick="mostrarPanel('codigo')">🔧 Análisis de Código</button>
+                <button class="feature-tab" onclick="mostrarPanel('contenido')">📝 Generar Contenido</button>
+                <button class="feature-tab" onclick="mostrarPanel('matematicas')">🧮 Matemáticas</button>
+                <button class="feature-tab" onclick="mostrarPanel('archivos')">📁 Procesar Archivos</button>
+            </div>
+
+            <!-- Panel de Chat IA -->
+            <div id="chatPanel" class="content-panel active">
+                <div style="flex: 1; padding: 20px; overflow-y: auto;" id="chatContainer">
+                    <div id="respuestas">
+                        <div class="mensaje-bienvenida reasoning-enhanced">
+                            <h4>🤖 Agente IA Avanzado</h4>
+                            <p>¡Bienvenido a la versión mejorada! Ahora con:</p>
+                            <ul>
+                                <li>🧠 <strong>Reasoning visible</strong> - Ve cómo piensa el modelo</li>
+                                <li>📚 <strong>Historial persistente</strong> - Conversaciones guardadas</li>
+                                <li>🔧 <strong>Análisis de código</strong> - Mejora tu programación</li>
+                                <li>📝 <strong>Generación de contenido</strong> - Artículos, emails, docs</li>
+                                <li>🧮 <strong>Matemáticas avanzadas</strong> - Con gráficos</li>
+                                <li>📁 <strong>Procesamiento de archivos</strong> - Analiza tus documentos</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input de chat mejorado -->
+                <div style="padding: 20px; border-top: 1px solid #dee2e6;">
+                    <div class="form-group">
+                        <label>🤖 Modelo:</label>
+                        <select id="modeloSelect" class="form-control">
+                            {% for modelo in modelos_disponibles %}
+                            <option value="{{ modelo }}">{{ modelo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input type="checkbox" id="internetCheck" checked class="form-check-input">
+                            <label for="internetCheck" class="form-check-label">🌐 Permitir búsqueda web</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" id="reasoningCheck" checked class="form-check-input">
+                            <label for="reasoningCheck" class="form-check-label">🧠 Modo reasoning mejorado</label>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <textarea id="preguntaInput" class="form-control" rows="3" 
+                                placeholder="Escribe tu pregunta aquí... (Shift+Enter para nueva línea)"
+                                onkeydown="if(event.shiftKey && event.key === 'Enter') return; else if(event.key === 'Enter') { event.preventDefault(); enviarPregunta(); }"></textarea>
+                        <div class="input-group-append">
+                            <button onclick="enviarPregunta()" class="btn btn-primary" id="enviarBtn">
+                                <span id="enviarTexto">🚀 Enviar</span>
+                                <span id="cargandoSpinner" style="display: none;">⏳ Procesando...</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Análisis de Código -->
+            <div id="codigoPanel" class="content-panel">
+                <div style="padding: 20px;">
+                    <h4>🔧 Análisis de Código Avanzado</h4>
+                    <div class="form-group">
+                        <label>Lenguaje:</label>
+                        <select id="lenguajeSelect" class="form-control">
+                            <option value="python">Python</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="html">HTML</option>
+                            <option value="css">CSS</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Código a analizar:</label>
+                        <textarea id="codigoInput" class="code-editor" placeholder="Pega tu código aquí..."></textarea>
+                    </div>
+                    <button onclick="analizarCodigo()" class="btn btn-success">🔍 Analizar Código</button>
+                    <div id="resultadoAnalisis" style="margin-top: 20px;"></div>
+                </div>
+            </div>
+
+            <!-- Panel de Generación de Contenido -->
+            <div id="contenidoPanel" class="content-panel">
+                <div style="padding: 20px;">
+                    <h4>📝 Generador de Contenido</h4>
+                    <div class="form-group">
+                        <label>Tipo de contenido:</label>
+                        <select id="tipoContenidoSelect" class="form-control">
+                            <option value="articulo_tecnico">📄 Artículo Técnico</option>
+                            <option value="email_profesional">✉️ Email Profesional</option>
+                            <option value="documentacion">📋 Documentación</option>
+                            <option value="plan_proyecto">📊 Plan de Proyecto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Descripción/Tema:</label>
+                        <textarea id="promptContenido" class="form-control" rows="3" 
+                                placeholder="Describe qué tipo de contenido necesitas..."></textarea>
+                    </div>
+                    <button onclick="generarContenido()" class="btn btn-info">✨ Generar Contenido</button>
+                    <div id="resultadoContenido" style="margin-top: 20px;"></div>
+                </div>
+            </div>
+
+            <!-- Panel de Matemáticas -->
+            <div id="matematicasPanel" class="content-panel">
+                <div style="padding: 20px;">
+                    <h4>🧮 Resolvedor Matemático</h4>
+                    <div class="form-group">
+                        <label>Expresión matemática:</label>
+                        <input type="text" id="expresionMath" class="math-input form-control" 
+                               placeholder="Ej: sin(x), x**2 + 2*x + 1, 2 + 2">
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="graficoCheck" class="form-check-input">
+                        <label for="graficoCheck" class="form-check-label">📊 Generar gráfico (si contiene 'x')</label>
+                    </div>
+                    <button onclick="resolverMatematicas()" class="btn btn-warning">🔢 Resolver</button>
+                    <div id="resultadoMath" style="margin-top: 20px;"></div>
+                </div>
+            </div>
+
+            <!-- Panel de Archivos -->
+            <div id="archivosPanel" class="content-panel">
+                <div style="padding: 20px;">
+                    <h4>📁 Procesador de Archivos</h4>
+                    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                        <div id="uploadText">
+                            <h5>📤 Subir Archivo</h5>
+                            <p>Haz clic aquí o arrastra un archivo</p>
+                            <small>Formatos soportados: txt, py, js, html, css, json, md, pdf, docx, xlsx, csv</small>
+                        </div>
+                    </div>
+                    <input type="file" id="fileInput" style="display: none;" onchange="procesarArchivo()" 
+                           accept=".txt,.py,.js,.html,.css,.json,.md,.pdf,.docx,.xlsx,.csv">
+                    <div id="resultadoArchivo" style="margin-top: 20px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel derecho - Herramientas -->
+        <div class="tools-panel">
+            <h3>🛠️ Herramientas</h3>
+            
+            <div class="tool-card" onclick="mostrarPanel('chat'); document.getElementById('reasoningCheck').checked = true;">
+                <h5>🧠 Reasoning Mode</h5>
+                <p>Chat con proceso de pensamiento visible</p>
+            </div>
+
+            <div class="tool-card" onclick="limpiarChat()">
+                <h5>🧹 Limpiar Chat</h5>
+                <p>Nuevo chat limpio</p>
+            </div>
+
+            <div class="tool-card" onclick="exportarHistorial()">
+                <h5>💾 Exportar</h5>
+                <p>Descargar conversaciones</p>
+            </div>
+
+            <div class="tool-card" onclick="mostrarEstadisticas()">
+                <h5>📊 Estadísticas</h5>
+                <p>Ver métricas de uso</p>
+            </div>
+
+            <div id="herramientasStatus">
+                <h4>📈 Estado</h4>
+                <div id="statusInfo">
+                    <p><strong>Modelos:</strong> {{ modelos_disponibles|length }}</p>
+                    <p><strong>Sesión:</strong> <span id="currentSession">Nueva</span></p>
+                    <p><strong>Modo:</strong> <span id="currentMode">Chat</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // Variables globales para la versión mejorada
+        let currentSessionId = null;
+        let currentPanel = 'chat';
+
+        // Generar ID de sesión único
+        function generarSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Cambiar entre paneles
+        function mostrarPanel(panel) {
+            // Ocultar todos los paneles
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.feature-tab').forEach(t => t.classList.remove('active'));
+            
+            // Mostrar panel seleccionado
+            document.getElementById(panel + 'Panel').classList.add('active');
+            event.target.classList.add('active');
+            
+            currentPanel = panel;
+            document.getElementById('currentMode').textContent = {
+                'chat': 'Chat IA',
+                'codigo': 'Análisis Código',
+                'contenido': 'Generar Contenido',
+                'matematicas': 'Matemáticas',
+                'archivos': 'Procesar Archivos'
+            }[panel];
+        }
+
+        // Inicializar nueva sesión
+        function nuevaSesion() {
+            currentSessionId = generarSessionId();
+            document.getElementById('currentSession').textContent = 'Nueva (' + currentSessionId.substr(-6) + ')';
+            limpiarChat();
+            cargarSesiones();
+        }
+
+        // Cambiar sesión
+        function cambiarSesion() {
+            const sessionSelect = document.getElementById('sessionSelect');
+            currentSessionId = sessionSelect.value || generarSessionId();
+            cargarHistorialSesion();
+        }
+
+        // Cargar historial de sesión
+        function cargarHistorialSesion() {
+            if (!currentSessionId) return;
+            
+            fetch(`/api/historial/${currentSessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('historialContainer');
+                    if (data.conversaciones && data.conversaciones.length > 0) {
+                        container.innerHTML = data.conversaciones.map(conv => `
+                            <div class="history-item" onclick="cargarConversacion('${conv.user_message}', '${conv.ai_response}')">
+                                <strong>${conv.user_message.substring(0, 50)}...</strong>
+                                <br><small>${conv.timestamp}</small>
+                            </div>
+                        `).join('');
+                    } else {
+                        container.innerHTML = '<p class="text-muted">No hay conversaciones en esta sesión</p>';
+                    }
+                });
+        }
+
+        // Cargar lista de sesiones
+        function cargarSesiones() {
+            fetch('/api/sesiones')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('sessionSelect');
+                    select.innerHTML = '<option value="">Nueva Sesión</option>';
+                    
+                    if (data.sesiones) {
+                        data.sesiones.forEach(session => {
+                            const option = document.createElement('option');
+                            option.value = session.session_id;
+                            option.textContent = session.title || session.session_id.substr(-8);
+                            select.appendChild(option);
+                        });
+                    }
+                });
+        }
+
+        // Función de chat mejorada
+        function enviarPregunta() {
+            const pregunta = document.getElementById('preguntaInput').value.trim();
+            if (!pregunta) return;
+
+            const modelo = document.getElementById('modeloSelect').value;
+            const permitirInternet = document.getElementById('internetCheck').checked;
+            const reasoningMode = document.getElementById('reasoningCheck').checked;
+            
+            if (!currentSessionId) {
+                currentSessionId = generarSessionId();
+            }
+
+            // Mostrar pregunta del usuario
+            mostrarMensajeUsuario(pregunta);
+            
+            // Preparar interfaz
+            document.getElementById('enviarBtn').disabled = true;
+            document.getElementById('enviarTexto').style.display = 'none';
+            document.getElementById('cargandoSpinner').style.display = 'inline';
+            
+            // Limpiar input
+            document.getElementById('preguntaInput').value = '';
+
+            const endpoint = reasoningMode ? '/api/reasoning-enhanced' : '/chat';
+            const payload = {
+                pregunta: pregunta,
+                modelo: modelo,
+                permitir_internet: permitirInternet,
+                session_id: currentSessionId,
+                modo: permitirInternet ? 'agente' : 'simple'
+            };
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    mostrarError(data.error);
+                } else {
+                    mostrarRespuestaIA(data, reasoningMode);
+                    cargarHistorialSesion(); // Actualizar historial
+                }
+            })
+            .catch(error => {
+                mostrarError('Error de conexión: ' + error.message);
+            })
+            .finally(() => {
+                document.getElementById('enviarBtn').disabled = false;
+                document.getElementById('enviarTexto').style.display = 'inline';
+                document.getElementById('cargandoSpinner').style.display = 'none';
+            });
+        }
+
+        // Mostrar respuesta con reasoning mejorado
+        function mostrarRespuestaIA(data, reasoningMode) {
+            const container = document.getElementById('respuestas');
+            const respuestaDiv = document.createElement('div');
+            respuestaDiv.className = 'mensaje-ia';
+            
+            let html = `
+                <div class="respuesta-header">
+                    <strong>🤖 ${data.modelo_usado}</strong>
+                    <span class="badge badge-info">${data.modo || 'simple'}</span>
+                    ${data.duracion ? `<span class="badge badge-secondary">${data.duracion}s</span>` : ''}
+                </div>
+                <div class="respuesta-contenido">
+                    ${formatearTexto(data.respuesta)}
+                </div>
+            `;
+
+            // Mostrar reasoning si está disponible
+            if (data.reasoning_content && reasoningMode) {
+                html += `
+                    <div class="reasoning-section reasoning-enhanced">
+                        <div class="reasoning-header" onclick="toggleReasoning(this)">
+                            <span class="reasoning-icon">🧠</span>
+                            <strong>Proceso de Razonamiento</strong>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="reasoning-content" style="display: block;">
+                            <pre style="white-space: pre-wrap; color: #e2e8f0;">${data.reasoning_content}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Mostrar pensamientos si están disponibles
+            if (data.pensamientos && data.pensamientos.length > 0) {
+                html += `
+                    <div class="pensamientos-section">
+                        <div class="pensamientos-header" onclick="togglePensamientos(this)">
+                            <span>💭</span> Proceso de Análisis
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="pensamientos-content">
+                            ${data.pensamientos.map(p => `<div class="pensamiento-item">${p}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            respuestaDiv.innerHTML = html;
+            container.appendChild(respuestaDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Análisis de código
+        function analizarCodigo() {
+            const codigo = document.getElementById('codigoInput').value.trim();
+            const lenguaje = document.getElementById('lenguajeSelect').value;
+            const modelo = document.getElementById('modeloSelect').value;
+
+            if (!codigo) {
+                alert('Por favor, ingresa código para analizar');
+                return;
+            }
+
+            fetch('/api/analizar-codigo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    codigo: codigo,
+                    lenguaje: lenguaje,
+                    modelo: modelo
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('resultadoAnalisis');
+                if (data.error) {
+                    container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                } else {
+                    const resultado = data.resultado;
+                    container.innerHTML = `
+                        <div class="card">
+                            <div class="card-header"><strong>📊 Métricas del Código</strong></div>
+                            <div class="card-body">
+                                <ul>
+                                    <li><strong>Líneas totales:</strong> ${resultado.metricas.lineas_total}</li>
+                                    <li><strong>Líneas de código:</strong> ${resultado.metricas.lineas_codigo}</li>
+                                    <li><strong>Comentarios:</strong> ${resultado.metricas.lineas_comentarios} (${resultado.metricas.porcentaje_comentarios}%)</li>
+                                </ul>
+                                ${resultado.problemas_detectados.length > 0 ? 
+                                    '<h5>⚠️ Problemas Detectados:</h5><ul>' + 
+                                    resultado.problemas_detectados.map(p => `<li>${p}</li>`).join('') + 
+                                    '</ul>' : ''}
+                            </div>
+                        </div>
+                        <div class="card mt-3">
+                            <div class="card-header"><strong>🧠 Análisis IA</strong></div>
+                            <div class="card-body">
+                                <pre style="white-space: pre-wrap;">${resultado.analisis_ia}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('resultadoAnalisis').innerHTML = 
+                    `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        }
+
+        // Generar contenido
+        function generarContenido() {
+            const tipo = document.getElementById('tipoContenidoSelect').value;
+            const prompt = document.getElementById('promptContenido').value.trim();
+            const modelo = document.getElementById('modeloSelect').value;
+
+            if (!prompt) {
+                alert('Por favor, describe qué contenido necesitas');
+                return;
+            }
+
+            fetch('/api/generar-contenido', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tipo: tipo,
+                    prompt: prompt,
+                    modelo: modelo,
+                    session_id: currentSessionId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('resultadoContenido');
+                if (data.error) {
+                    container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                } else {
+                    container.innerHTML = `
+                        <div class="card">
+                            <div class="card-header">
+                                <strong>✨ ${data.tipo.replace('_', ' ').toUpperCase()}</strong>
+                                <button class="btn btn-sm btn-outline-primary float-right" onclick="copiarTexto('${data.contenido.replace(/'/g, "\\'")}')">
+                                    📋 Copiar
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div style="white-space: pre-wrap;">${formatearTexto(data.contenido)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('resultadoContenido').innerHTML = 
+                    `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        }
+
+        // Resolver matemáticas
+        function resolverMatematicas() {
+            const expresion = document.getElementById('expresionMath').value.trim();
+            const generar_grafico = document.getElementById('graficoCheck').checked;
+
+            if (!expresion) {
+                alert('Por favor, ingresa una expresión matemática');
+                return;
+            }
+
+            fetch('/api/resolver-matematicas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    expresion: expresion,
+                    generar_grafico: generar_grafico,
+                    session_id: currentSessionId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('resultadoMath');
+                if (data.error) {
+                    container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                } else {
+                    let html = `
+                        <div class="card">
+                            <div class="card-header"><strong>🔢 Resultado</strong></div>
+                            <div class="card-body">
+                                <p><strong>Expresión:</strong> ${data.expresion}</p>
+                                <p><strong>Resultado:</strong> ${data.resultado}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (data.grafico) {
+                        html += `
+                            <div class="plot-container">
+                                <h5>📊 Gráfico de la función</h5>
+                                <img src="${data.grafico}" alt="Gráfico matemático" style="max-width: 100%; height: auto;">
+                            </div>
+                        `;
+                    }
+                    
+                    container.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                document.getElementById('resultadoMath').innerHTML = 
+                    `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        }
+
+        // Procesar archivo
+        function procesarArchivo() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('archivo', file);
+
+            document.getElementById('uploadText').innerHTML = '<p>📤 Subiendo archivo...</p>';
+
+            fetch('/api/subir-archivo', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('resultadoArchivo');
+                if (data.error) {
+                    container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                } else {
+                    container.innerHTML = `
+                        <div class="card">
+                            <div class="card-header"><strong>📁 ${data.filename}</strong></div>
+                            <div class="card-body">
+                                <h5>📊 Estadísticas</h5>
+                                <ul>
+                                    <li><strong>Tipo:</strong> ${data.estadisticas.tipo}</li>
+                                    <li><strong>Palabras:</strong> ${data.estadisticas.palabras}</li>
+                                    <li><strong>Caracteres:</strong> ${data.estadisticas.caracteres}</li>
+                                    <li><strong>Líneas:</strong> ${data.estadisticas.lineas}</li>
+                                </ul>
+                                <h5>📝 Contenido (primeras 1000 caracteres)</h5>
+                                <pre style="white-space: pre-wrap; background: #f8f9fa; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto;">
+${data.contenido.substring(0, 1000)}${data.contenido.length > 1000 ? '...' : ''}
+                                </pre>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('uploadText').innerHTML = `
+                    <h5>📤 Subir Archivo</h5>
+                    <p>Haz clic aquí o arrastra un archivo</p>
+                    <small>Formatos soportados: txt, py, js, html, css, json, md, pdf, docx, xlsx, csv</small>
+                `;
+            })
+            .catch(error => {
+                document.getElementById('resultadoArchivo').innerHTML = 
+                    `<div class="alert alert-danger">Error: ${error.message}</div>`;
+                document.getElementById('uploadText').innerHTML = `
+                    <h5>📤 Subir Archivo</h5>
+                    <p>Haz clic aquí o arrastra un archivo</p>
+                    <small>Formatos soportados: txt, py, js, html, css, json, md, pdf, docx, xlsx, csv</small>
+                `;
+            });
+        }
+
+        // Funciones auxiliares
+        function limpiarChat() {
+            document.getElementById('respuestas').innerHTML = `
+                <div class="mensaje-bienvenida reasoning-enhanced">
+                    <h4>🤖 Agente IA Avanzado</h4>
+                    <p>Chat limpio iniciado. ¡Pregunta lo que necesites!</p>
+                </div>
+            `;
+        }
+
+        function copiarTexto(texto) {
+            navigator.clipboard.writeText(texto).then(() => {
+                alert('📋 Texto copiado al portapapeles');
+            });
+        }
+
+        function exportarHistorial() {
+            if (!currentSessionId) {
+                alert('No hay sesión activa para exportar');
+                return;
+            }
+            
+            fetch(`/api/historial/${currentSessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `historial_${currentSessionId}.json`;
+                    a.click();
+                });
+        }
+
+        function mostrarEstadisticas() {
+            alert('📊 Funcionalidad de estadísticas próximamente...');
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarSesiones();
+            nuevaSesion();
+        });
+    </script>
+</body>
+</html>

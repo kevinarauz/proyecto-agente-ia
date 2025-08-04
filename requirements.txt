@@ -1,7 +1,14 @@
 flask
 langchain
 langchain-community
+langchain-ollama
+langchain-google-genai
 python-dotenv
 duckduckgo-search
 langchainhub
 requests
+matplotlib
+numpy
+Werkzeug
+Pillow
+PyPDF2

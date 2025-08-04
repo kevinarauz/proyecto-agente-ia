@@ -7,9 +7,23 @@ import logging
 import re
 import traceback
 import subprocess
-from typing import Optional, Union, Tuple
-from flask import Flask, render_template, request, jsonify, Response
+import datetime
+import sqlite3
+import base64
+import hashlib
+import math
+import tempfile
+from pathlib import Path
+from typing import Optional, Union, Tuple, Dict, List
+from flask import Flask, render_template, request, jsonify, Response, send_file
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+
+# Configurar matplotlib para evitar problemas con GUI en servidor
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Importar ChatOllama de la nueva ubicación (si está disponible), sino usar la anterior
 try:
@@ -166,6 +180,416 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Configuración para subida de archivos
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'txt', 'py', 'js', 'html', 'css', 'json', 'md', 'pdf', 'docx', 'xlsx', 'csv'}
+MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+# Crear directorio de uploads si no existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs('static/plots', exist_ok=True)
+
+# ================================
+# SISTEMA DE HISTORIAL PERSISTENTE
+# ================================
+
+def init_database():
+    """Inicializa la base de datos para el historial de conversaciones"""
+    conn = sqlite3.connect('chat_history.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            user_message TEXT NOT NULL,
+            ai_response TEXT NOT NULL,
+            model_used TEXT NOT NULL,
+            reasoning_content TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            metadata TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            title TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_activity DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def save_conversation(session_id: str, user_message: str, ai_response: str, 
+                     model_used: str, reasoning_content: Optional[str] = None, metadata: Optional[Dict] = None):
+    """Guarda una conversación en la base de datos"""
+    conn = sqlite3.connect('chat_history.db')
+    cursor = conn.cursor()
+    
+    # Actualizar o crear sesión
+    cursor.execute('''
+        INSERT OR REPLACE INTO sessions (session_id, last_activity, title)
+        VALUES (?, ?, ?)
+    ''', (session_id, datetime.datetime.now(), user_message[:50] + "..."))
+    
+    # Guardar conversación
+    cursor.execute('''
+        INSERT INTO conversations 
+        (session_id, user_message, ai_response, model_used, reasoning_content, metadata)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (session_id, user_message, ai_response, model_used, reasoning_content, 
+          json.dumps(metadata) if metadata else None))
+    
+    conn.commit()
+    conn.close()
+
+def get_conversation_history(session_id: str, limit: int = 50) -> List[Dict]:
+    """Obtiene el historial de conversaciones de una sesión"""
+    conn = sqlite3.connect('chat_history.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT user_message, ai_response, model_used, reasoning_content, timestamp, metadata
+        FROM conversations 
+        WHERE session_id = ? 
+        ORDER BY timestamp DESC 
+        LIMIT ?
+    ''', (session_id, limit))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [{
+        'user_message': row[0],
+        'ai_response': row[1],
+        'model_used': row[2],
+        'reasoning_content': row[3],
+        'timestamp': row[4],
+        'metadata': json.loads(row[5]) if row[5] else {}
+    } for row in rows]
+
+# ================================
+# ANALIZADOR DE CÓDIGO AVANZADO
+# ================================
+
+def analizar_codigo(codigo: str, lenguaje: str = 'python', modelo_seleccionado: str = 'lmstudio-deepseek') -> Dict:
+    """Analiza código y proporciona sugerencias de mejora con reasoning"""
+    
+    # Análisis básico de métricas
+    lineas = codigo.split('\n')
+    num_lineas = len(lineas)
+    lineas_vacias = sum(1 for linea in lineas if not linea.strip())
+    lineas_comentarios = sum(1 for linea in lineas if linea.strip().startswith('#'))
+    
+    # Detección de posibles problemas
+    problemas = []
+    if num_lineas > 100:
+        problemas.append("⚠️ Archivo muy largo (>100 líneas) - considerar dividir en funciones")
+    if lineas_comentarios / num_lineas < 0.1:
+        problemas.append("📝 Pocos comentarios - agregar documentación")
+    
+    # Análisis con IA
+    if modelo_seleccionado in simple_chains:
+        prompt_analisis = f"""
+        Como experto en desarrollo de software, analiza este código {lenguaje}:
+
+        ```{lenguaje}
+        {codigo}
+        ```
+
+        Proporciona:
+        1. **CALIDAD GENERAL** (1-10): Puntaje y justificación
+        2. **PROBLEMAS DETECTADOS**: Issues específicos encontrados
+        3. **SUGERENCIAS DE MEJORA**: Recomendaciones concretas
+        4. **REFACTORING**: Cambios específicos recomendados
+        5. **MEJORES PRÁCTICAS**: Patrones que se podrían aplicar
+
+        Responde en formato estructurado y sé específico.
+        """
+        
+        analisis_ia = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_analisis})
+    else:
+        analisis_ia = "Análisis de IA no disponible - modelo no encontrado"
+    
+    return {
+        'metricas': {
+            'lineas_total': num_lineas,
+            'lineas_codigo': num_lineas - lineas_vacias - lineas_comentarios,
+            'lineas_comentarios': lineas_comentarios,
+            'lineas_vacias': lineas_vacias,
+            'porcentaje_comentarios': round((lineas_comentarios / num_lineas) * 100, 1) if num_lineas > 0 else 0
+        },
+        'problemas_detectados': problemas,
+        'analisis_ia': analisis_ia
+    }
+
+# ================================
+# GENERADOR MATEMÁTICO Y GRÁFICOS
+# ================================
+
+def resolver_matematicas(expresion: str, generar_grafico: bool = False) -> Dict:
+    """Resuelve expresiones matemáticas y genera gráficos si se solicita"""
+    try:
+        # Evaluar expresión matemática de forma segura
+        allowed_names = {
+            k: v for k, v in math.__dict__.items() if not k.startswith("__")
+        }
+        allowed_names.update({"abs": abs, "round": round})
+        
+        # Para expresiones simples
+        try:
+            resultado = eval(expresion, {"__builtins__": {}}, allowed_names)
+            respuesta = {
+                'resultado': resultado,
+                'expresion': expresion,
+                'tipo': 'calculo_simple'
+            }
+        except:
+            respuesta = {
+                'error': 'Expresión matemática no válida',
+                'expresion': expresion
+            }
+            return respuesta
+        
+        # Generar gráfico si se solicita y es apropiado
+        if generar_grafico and 'x' in expresion:
+            try:
+                # Crear gráfico de la función
+                x = np.linspace(-10, 10, 400)
+                
+                # Reemplazar 'x' por los valores del array
+                expr_for_plot = expresion.replace('x', 'x_val')
+                y_values = []
+                
+                for x_val in x:
+                    try:
+                        local_vars = allowed_names.copy()
+                        local_vars['x_val'] = x_val
+                        y_val = eval(expr_for_plot.replace('x_val', str(x_val)), {"__builtins__": {}}, local_vars)
+                        y_values.append(y_val)
+                    except:
+                        y_values.append(np.nan)
+                
+                y = np.array(y_values)
+                
+                # Crear el gráfico
+                plt.figure(figsize=(10, 6))
+                plt.plot(x, y, 'b-', linewidth=2, label=f'f(x) = {expresion}')
+                plt.grid(True, alpha=0.3)
+                plt.xlabel('x')
+                plt.ylabel('f(x)')
+                plt.title(f'Gráfico de f(x) = {expresion}')
+                plt.legend()
+                plt.axhline(y=0, color='k', linewidth=0.5)
+                plt.axvline(x=0, color='k', linewidth=0.5)
+                
+                # Guardar gráfico
+                plot_filename = f"plot_{int(time.time())}.png"
+                plot_path = os.path.join('static', 'plots', plot_filename)
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                
+                respuesta['grafico'] = f"/static/plots/{plot_filename}"
+                respuesta['tipo'] = 'funcion_con_grafico'
+                
+            except Exception as e:
+                respuesta['warning'] = f"No se pudo generar gráfico: {str(e)}"
+        
+        return respuesta
+        
+    except Exception as e:
+        return {
+            'error': str(e),
+            'expresion': expresion
+        }
+
+# ================================
+# GENERADOR DE CONTENIDO ESPECIALIZADO
+# ================================
+
+def generar_contenido(tipo: str, prompt: str, modelo_seleccionado: str = 'lmstudio-deepseek') -> Dict:
+    """Genera diferentes tipos de contenido especializado"""
+    
+    prompts_especializados = {
+        'articulo_tecnico': f"""
+        Como escritor técnico especializado, crea un artículo profesional sobre: {prompt}
+
+        ESTRUCTURA REQUERIDA:
+        # Título Principal
+
+        ## Introducción
+        [Contextualizar el tema y su importancia]
+
+        ## Desarrollo Técnico
+        [Explicación detallada con ejemplos]
+
+        ## Implementación Práctica
+        [Pasos concretos o código si aplica]
+
+        ## Conclusiones
+        [Resumen y recomendaciones]
+
+        ## Referencias
+        [Fuentes recomendadas para profundizar]
+
+        Usa un tono profesional pero accesible. Incluye ejemplos prácticos cuando sea relevante.
+        """,
+        
+        'email_profesional': f"""
+        Redacta un email profesional basado en: {prompt}
+
+        ESTRUCTURA:
+        - Asunto claro y específico
+        - Saludo apropiado
+        - Contexto/introducción breve
+        - Cuerpo principal con información estructurada
+        - Llamada a la acción clara
+        - Cierre profesional
+
+        Mantén un tono formal pero cordial.
+        """,
+        
+        'documentacion': f"""
+        Crea documentación técnica completa para: {prompt}
+
+        INCLUIR:
+        # Documentación Técnica
+
+        ## Descripción General
+        [Qué hace y por qué es útil]
+
+        ## Instalación/Configuración
+        [Pasos detallados]
+
+        ## Uso
+        [Ejemplos prácticos con código]
+
+        ## API/Referencia
+        [Métodos, parámetros, respuestas]
+
+        ## Ejemplos
+        [Casos de uso comunes]
+
+        ## Solución de Problemas
+        [Errores comunes y soluciones]
+
+        Sé específico y proporciona ejemplos de código cuando sea necesario.
+        """,
+        
+        'plan_proyecto': f"""
+        Desarrolla un plan de proyecto completo para: {prompt}
+
+        ESTRUCTURA:
+        # Plan de Proyecto
+
+        ## Objetivos
+        - Objetivo principal
+        - Objetivos específicos
+        - Criterios de éxito
+
+        ## Análisis
+        - Situación actual
+        - Requerimientos
+        - Riesgos identificados
+
+        ## Planificación
+        - Fases del proyecto
+        - Cronograma estimado
+        - Recursos necesarios
+
+        ## Implementación
+        - Metodología propuesta
+        - Herramientas recomendadas
+        - Equipo necesario
+
+        ## Control y Seguimiento
+        - Métricas de progreso
+        - Puntos de control
+        - Plan de contingencia
+
+        Proporciona estimaciones realistas y considera posibles obstáculos.
+        """
+    }
+    
+    if tipo not in prompts_especializados:
+        return {'error': f'Tipo de contenido "{tipo}" no soportado'}
+    
+    if modelo_seleccionado not in simple_chains:
+        return {'error': f'Modelo "{modelo_seleccionado}" no disponible'}
+    
+    try:
+        contenido_generado = simple_chains[modelo_seleccionado].invoke({
+            "pregunta": prompts_especializados[tipo]
+        })
+        
+        return {
+            'tipo': tipo,
+            'contenido': contenido_generado,
+            'prompt_original': prompt,
+            'timestamp': datetime.datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {'error': f'Error generando contenido: {str(e)}'}
+
+# ================================
+# PROCESADOR DE ARCHIVOS
+# ================================
+
+def allowed_file(filename):
+    """Verifica si la extensión del archivo está permitida"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def procesar_archivo_texto(file_path: str) -> Dict:
+    """Procesa archivos de texto y proporciona análisis"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            contenido = f.read()
+        
+        # Análisis básico
+        palabras = len(contenido.split())
+        caracteres = len(contenido)
+        lineas = len(contenido.split('\n'))
+        
+        # Detectar tipo de contenido
+        extension = file_path.rsplit('.', 1)[1].lower()
+        tipo_contenido = {
+            'py': 'Código Python',
+            'js': 'Código JavaScript', 
+            'html': 'HTML',
+            'css': 'CSS',
+            'md': 'Markdown',
+            'txt': 'Texto plano',
+            'json': 'JSON'
+        }.get(extension, 'Archivo de texto')
+        
+        return {
+            'contenido': contenido,
+            'estadisticas': {
+                'palabras': palabras,
+                'caracteres': caracteres,
+                'lineas': lineas,
+                'tipo': tipo_contenido
+            },
+            'procesado': True
+        }
+        
+    except Exception as e:
+        return {
+            'error': f'Error procesando archivo: {str(e)}',
+            'procesado': False
+        }
+
+# Inicializar base de datos
+init_database()
 
 def formatear_duracion(segundos):
     """Convierte segundos a formato legible (minutos y segundos)"""
@@ -811,6 +1235,11 @@ for model_name, model_instance in models.items():
 def index() -> str:
     return render_template('index.html', modelos_disponibles=available_models)
 
+@app.route('/enhanced')
+def index_enhanced() -> str:
+    """Interfaz mejorada con todas las nuevas funcionalidades"""
+    return render_template('index_enhanced.html', modelos_disponibles=available_models)
+
 @app.route('/chat', methods=['POST'])
 def chat() -> Union[Response, Tuple[Response, int]]:
     try:
@@ -822,8 +1251,9 @@ def chat() -> Union[Response, Tuple[Response, int]]:
         modo = data.get('modo', 'simple')  # 'simple' o 'agente'
         modelo_seleccionado = data.get('modelo', available_models[0] if available_models else 'llama3')
         permitir_internet = data.get('permitir_internet', True)  # Por defecto permitir internet
+        session_id = data.get('session_id', str(int(time.time())))  # Generar ID de sesión si no existe
         
-        print(f"🔍 DEBUG: pregunta='{pregunta}', modo='{modo}', modelo='{modelo_seleccionado}', internet={permitir_internet}")
+        print(f"🔍 DEBUG: pregunta='{pregunta}', modo='{modo}', modelo='{modelo_seleccionado}', internet={permitir_internet}, session='{session_id}'")
         
         if not pregunta:
             return jsonify({'error': 'No se proporcionó ninguna pregunta'}), 400
@@ -945,6 +1375,22 @@ Responde de manera clara y útil con estos datos actuales."""
                                 respuesta_data['reasoning_content'] = reasoning_content
                                 respuesta_data['metadata']['tiene_razonamiento'] = True
                                 print(f"📝 Reasoning content del clima capturado ({len(reasoning_content)} caracteres)")
+                            
+                            # Añadir session_id a la respuesta
+                            respuesta_data['session_id'] = session_id
+                            
+                            # Guardar en historial
+                            try:
+                                save_conversation(
+                                    session_id=session_id,
+                                    user_message=pregunta,
+                                    ai_response=respuesta_formateada,
+                                    model_used=modelo_seleccionado,
+                                    reasoning_content=reasoning_content,
+                                    metadata=respuesta_data['metadata']
+                                )
+                            except Exception as hist_error:
+                                print(f"⚠️ Error guardando historial: {hist_error}")
                             
                             return jsonify(respuesta_data)
                     
@@ -1137,12 +1583,30 @@ Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones c
                         pensamientos.append("⚠️ Información en tiempo real no disponible")
                         pensamientos.append("🛠️ Proporcionando alternativas para obtener información actualizada")
                 
+                # Guardar en historial antes de retornar
+                try:
+                    save_conversation(
+                        session_id=session_id,
+                        user_message=pregunta,
+                        ai_response=respuesta_completa['output'],
+                        model_used=modelo_seleccionado,
+                        metadata={
+                            'modo': 'agente',
+                            'iteraciones': len(pasos_intermedios),
+                            'busquedas': busquedas_count,
+                            'duracion': duracion
+                        }
+                    )
+                except Exception as hist_error:
+                    print(f"⚠️ Error guardando historial: {hist_error}")
+                
                 return jsonify({
                     'respuesta': respuesta_completa['output'],
                     'modo': 'agente',
                     'modelo_usado': modelo_seleccionado,
                     'pasos_intermedios': pasos_intermedios,
                     'pensamientos': pensamientos,
+                    'session_id': session_id,
                     'metadata': {
                         'duracion': duracion,
                         'duracion_formateada': duracion_formateada,
@@ -1356,6 +1820,22 @@ Mientras tanto, puedo responder preguntas sobre temas generales, explicaciones c
                         respuesta_data['reasoning_content'] = reasoning_content
                         respuesta_data['metadata']['tiene_razonamiento'] = True
                         print(f"📝 Reasoning content capturado ({len(reasoning_content)} caracteres)")
+                    
+                    # Añadir session_id
+                    respuesta_data['session_id'] = session_id
+                    
+                    # Guardar en historial
+                    try:
+                        save_conversation(
+                            session_id=session_id,
+                            user_message=pregunta,
+                            ai_response=respuesta_final,
+                            model_used=modelo_seleccionado,
+                            reasoning_content=reasoning_content,
+                            metadata=respuesta_data['metadata']
+                        )
+                    except Exception as hist_error:
+                        print(f"⚠️ Error guardando historial: {hist_error}")
                     
                     return jsonify(respuesta_data)
                 
@@ -2317,10 +2797,331 @@ def get_ollama_models_for_actions():
             'error': str(e)
         }), 500
 
+# ================================
+# NUEVAS RUTAS AVANZADAS
+# ================================
+
+@app.route('/api/analizar-codigo', methods=['POST'])
+def analizar_codigo_endpoint():
+    """Endpoint para análisis avanzado de código"""
+    try:
+        data = request.get_json()
+        codigo = data.get('codigo', '')
+        lenguaje = data.get('lenguaje', 'python')
+        modelo = data.get('modelo', 'lmstudio-deepseek')
+        
+        if not codigo:
+            return jsonify({'error': 'No se proporcionó código'}), 400
+        
+        resultado = analizar_codigo(codigo, lenguaje, modelo)
+        
+        return jsonify({
+            'resultado': resultado,
+            'timestamp': datetime.datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generar-contenido', methods=['POST'])
+def generar_contenido_endpoint():
+    """Endpoint para generación de contenido especializado"""
+    try:
+        data = request.get_json()
+        tipo = data.get('tipo', 'articulo_tecnico')
+        prompt = data.get('prompt', '')
+        modelo = data.get('modelo', 'lmstudio-deepseek')
+        session_id = data.get('session_id', str(int(time.time())))
+        
+        if not prompt:
+            return jsonify({'error': 'No se proporcionó prompt'}), 400
+        
+        resultado = generar_contenido(tipo, prompt, modelo)
+        
+        # Guardar en historial si es exitoso
+        if 'contenido' in resultado:
+            save_conversation(
+                session_id=session_id,
+                user_message=f"Generar {tipo}: {prompt}",
+                ai_response=resultado['contenido'],
+                model_used=modelo,
+                metadata={
+                    'tipo_operacion': 'generar_contenido',
+                    'tipo_contenido': tipo
+                }
+            )
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/resolver-matematicas', methods=['POST'])
+def resolver_matematicas_endpoint():
+    """Endpoint para resolución de problemas matemáticos"""
+    try:
+        data = request.get_json()
+        expresion = data.get('expresion', '')
+        generar_grafico = data.get('generar_grafico', False)
+        session_id = data.get('session_id', str(int(time.time())))
+        
+        if not expresion:
+            return jsonify({'error': 'No se proporcionó expresión'}), 400
+        
+        resultado = resolver_matematicas(expresion, generar_grafico)
+        
+        # Guardar en historial
+        save_conversation(
+            session_id=session_id,
+            user_message=f"Resolver: {expresion}",
+            ai_response=f"Resultado: {resultado.get('resultado', 'Error')}",
+            model_used='sistema_matematico',
+            metadata={
+                'tipo_operacion': 'matematicas',
+                'expresion': expresion,
+                'con_grafico': generar_grafico
+            }
+        )
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/subir-archivo', methods=['POST'])
+def subir_archivo_endpoint():
+    """Endpoint para subida y procesamiento de archivos"""
+    try:
+        if 'archivo' not in request.files:
+            return jsonify({'error': 'No se encontró archivo'}), 400
+        
+        file = request.files['archivo']
+        if file.filename == '':
+            return jsonify({'error': 'No se seleccionó archivo'}), 400
+        
+        if file and file.filename and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            timestamp = str(int(time.time()))
+            filename = f"{timestamp}_{filename}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            file.save(file_path)
+            
+            # Procesar archivo
+            resultado = procesar_archivo_texto(file_path)
+            resultado['filename'] = filename
+            resultado['file_path'] = file_path
+            
+            return jsonify(resultado)
+        else:
+            return jsonify({'error': 'Tipo de archivo no permitido'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/historial/<session_id>', methods=['GET'])
+def obtener_historial_endpoint(session_id):
+    """Endpoint para obtener historial de conversaciones"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        historial = get_conversation_history(session_id, limit)
+        
+        return jsonify({
+            'session_id': session_id,
+            'conversaciones': historial,
+            'total': len(historial)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sesiones', methods=['GET'])
+def obtener_sesiones_endpoint():
+    """Endpoint para obtener lista de sesiones"""
+    try:
+        conn = sqlite3.connect('chat_history.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT session_id, title, created_at, last_activity
+            FROM sessions 
+            ORDER BY last_activity DESC 
+            LIMIT 100
+        ''')
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        sesiones = [{
+            'session_id': row[0],
+            'title': row[1],
+            'created_at': row[2],
+            'last_activity': row[3]
+        } for row in rows]
+        
+        return jsonify({'sesiones': sesiones})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reasoning-enhanced', methods=['POST'])
+def chat_with_enhanced_reasoning():
+    """Endpoint especial para chat con reasoning mejorado y visualización"""
+    try:
+        data = request.get_json()
+        pregunta = data.get('pregunta', '')
+        modelo_seleccionado = data.get('modelo', 'lmstudio-deepseek')
+        session_id = data.get('session_id', str(int(time.time())))
+        
+        if not pregunta:
+            return jsonify({'error': 'No se proporcionó pregunta'}), 400
+        
+        if modelo_seleccionado not in simple_chains:
+            return jsonify({'error': f'Modelo {modelo_seleccionado} no disponible'}), 400
+        
+        tiempo_inicio = time.time()
+        
+        # Prompt especial para maximizar el reasoning
+        if modelo_seleccionado == 'lmstudio-deepseek':
+            prompt_especial = f"""
+            La pregunta del usuario es: "{pregunta}"
+            
+            INSTRUCCIONES ESPECIALES:
+            1. Piensa paso a paso de manera muy detallada
+            2. Considera múltiples enfoques antes de responder
+            3. Explica tu razonamiento de forma clara
+            4. Si es un problema complejo, descomponlo en partes
+            5. Muestra diferentes perspectivas si es relevante
+            
+            Responde de manera estructurada y completa.
+            """
+        else:
+            prompt_especial = pregunta
+        
+        # Ejecutar consulta
+        resultado = simple_chains[modelo_seleccionado].invoke({"pregunta": prompt_especial})
+        
+        tiempo_fin = time.time()
+        duracion = round(tiempo_fin - tiempo_inicio, 2)
+        
+        # Extraer reasoning si está disponible
+        reasoning_content = None
+        if modelo_seleccionado == 'lmstudio-deepseek':
+            modelo_instance = models[modelo_seleccionado]
+            if hasattr(modelo_instance, '_last_response') and modelo_instance._last_response:
+                last_response = modelo_instance._last_response
+                if isinstance(last_response, dict) and "choices" in last_response:
+                    choice = last_response["choices"][0]
+                    if "message" in choice and "reasoning_content" in choice["message"]:
+                        reasoning_content = choice["message"]["reasoning_content"]
+        
+        # Guardar en historial
+        save_conversation(
+            session_id=session_id,
+            user_message=pregunta,
+            ai_response=resultado,
+            model_used=modelo_seleccionado,
+            reasoning_content=reasoning_content,
+            metadata={
+                'tipo_operacion': 'chat_enhanced_reasoning',
+                'duracion': duracion
+            }
+        )
+        
+        respuesta_data = {
+            'respuesta': resultado,
+            'reasoning_content': reasoning_content,
+            'modelo_usado': modelo_seleccionado,
+            'duracion': duracion,
+            'session_id': session_id,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'enhanced_mode': True
+        }
+        
+        return jsonify(respuesta_data)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/workspace/tools', methods=['GET'])
+def obtener_herramientas_disponibles():
+    """Endpoint para obtener lista de herramientas disponibles"""
+    try:
+        herramientas = {
+            'analisis_codigo': {
+                'nombre': 'Analizador de Código',
+                'descripcion': 'Análisis avanzado de calidad de código con sugerencias',
+                'lenguajes_soportados': ['python', 'javascript', 'html', 'css', 'json'],
+                'endpoint': '/api/analizar-codigo'
+            },
+            'generador_contenido': {
+                'nombre': 'Generador de Contenido',
+                'descripcion': 'Creación de artículos, emails, documentación y planes',
+                'tipos_soportados': ['articulo_tecnico', 'email_profesional', 'documentacion', 'plan_proyecto'],
+                'endpoint': '/api/generar-contenido'
+            },
+            'matematicas': {
+                'nombre': 'Resolvedor Matemático',
+                'descripcion': 'Resolución de expresiones y generación de gráficos',
+                'funciones_soportadas': ['calculadora', 'graficos', 'funciones'],
+                'endpoint': '/api/resolver-matematicas'
+            },
+            'procesador_archivos': {
+                'nombre': 'Procesador de Archivos',
+                'descripcion': 'Análisis y procesamiento de archivos de texto',
+                'tipos_soportados': list(ALLOWED_EXTENSIONS),
+                'endpoint': '/api/subir-archivo'
+            },
+            'historial': {
+                'nombre': 'Historial Persistente',
+                'descripcion': 'Gestión de conversaciones y sesiones',
+                'funciones': ['guardar', 'recuperar', 'buscar'],
+                'endpoint': '/api/historial'
+            },
+            'reasoning_enhanced': {
+                'nombre': 'Chat con Reasoning Avanzado',
+                'descripcion': 'Chat optimizado para mostrar proceso de razonamiento',
+                'modelos_compatibles': ['lmstudio-deepseek'],
+                'endpoint': '/api/reasoning-enhanced'
+            }
+        }
+        
+        return jsonify({
+            'herramientas': herramientas,
+            'total': len(herramientas),
+            'modelos_disponibles': available_models
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
-    print("🤖 Iniciando aplicación de IA con Agentes...")
+    print("🚀 ================================")
+    print("🤖 AGENTE IA AVANZADO - V2.0")
+    print("🚀 ================================")
     print(f"🧠 Modelos disponibles: {', '.join(available_models)}")
     print("🔍 Herramientas: Búsqueda web avanzada")
-    print("🌐 Servidor: http://127.0.0.1:5000")
-    print("🚀 Aplicación de consultas generales lista!")
+    print("💾 Base de datos: Historial persistente inicializada")
+    print("")
+    print("� NUEVAS FUNCIONALIDADES:")
+    print("  📝 Análisis de código avanzado")
+    print("  ✨ Generador de contenido especializado")
+    print("  🧮 Resolvedor matemático con gráficos")
+    print("  📁 Procesador de archivos")
+    print("  🧠 Reasoning visible mejorado")
+    print("  📚 Historial persistente de conversaciones")
+    print("")
+    print("🌐 INTERFACES DISPONIBLES:")
+    print("  🔗 Básica:    http://127.0.0.1:5000")
+    print("  🔗 Mejorada:  http://127.0.0.1:5000/enhanced")
+    print("")
+    print("� API ENDPOINTS:")
+    print("  /api/analizar-codigo      - Análisis de código")
+    print("  /api/generar-contenido    - Generación de contenido")
+    print("  /api/resolver-matematicas - Matemáticas y gráficos")
+    print("  /api/subir-archivo        - Procesamiento de archivos")
+    print("  /api/historial/<session>  - Gestión de historial")
+    print("  /api/reasoning-enhanced   - Chat con reasoning mejorado")
+    print("")
+    print("🚀 ¡Aplicación lista! Usa /enhanced para la versión completa")
     app.run(debug=True, host='127.0.0.1', port=5000)
