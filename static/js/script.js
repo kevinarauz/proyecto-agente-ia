@@ -1637,3 +1637,187 @@ function isElementInViewport(el) {
         rect.right <= (window.innerWidth || document.documentElement.clientWidth)
     );
 }
+
+// ========================
+// CONSOLA OLLAMA
+// ========================
+
+// Agregar línea a la consola Ollama
+function addOllamaConsoleLine(text, type = 'output') {
+    const console = document.getElementById('ollamaConsoleOutput');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    let className = '';
+    let prefix = '';
+    
+    switch(type) {
+        case 'command':
+            className = 'text-info';
+            prefix = `[${timestamp}] $ ollama `;
+            break;
+        case 'success':
+            className = 'text-success';
+            prefix = `[${timestamp}] ✓ `;
+            break;
+        case 'error':
+            className = 'text-danger';
+            prefix = `[${timestamp}] ✗ `;
+            break;
+        case 'warning':
+            className = 'text-warning';
+            prefix = `[${timestamp}] ⚠ `;
+            break;
+        default:
+            className = 'text-light';
+            prefix = `[${timestamp}] `;
+    }
+    
+    const line = document.createElement('div');
+    line.className = `console-line ${className}`;
+    line.innerHTML = `${prefix}${text}`;
+    
+    console.appendChild(line);
+    console.scrollTop = console.scrollHeight;
+}
+
+// Ejecutar comando Ollama predefinido
+async function executeOllamaCommand(command) {
+    addOllamaConsoleLine(command, 'command');
+    
+    try {
+        const response = await fetch('/api/ollama/console', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ command: command })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            addOllamaConsoleLine(data.output, 'success');
+            
+            // Si fue comando serve, actualizar estado de modelos
+            if (command === 'serve') {
+                setTimeout(refreshModelsStatus, 2000);
+            }
+            // Si fue comando ps o list, actualizar estado también
+            else if (command === 'ps' || command === 'list') {
+                setTimeout(refreshModelsStatus, 1000);
+            }
+        } else {
+            addOllamaConsoleLine(data.output || data.error, 'error');
+        }
+        
+    } catch (error) {
+        addOllamaConsoleLine(`Error de conexión: ${error.message}`, 'error');
+    }
+}
+
+// Ejecutar comando personalizado
+async function executeCustomOllamaCommand() {
+    const input = document.getElementById('ollamaCommandInput');
+    const command = input.value.trim();
+    
+    if (!command) {
+        addOllamaConsoleLine('Por favor, ingresa un comando', 'warning');
+        return;
+    }
+    
+    // Limpiar input
+    input.value = '';
+    
+    // Ejecutar comando
+    await executeOllamaCommand(command);
+}
+
+// Mostrar acciones para modelos
+async function showOllamaModelActions() {
+    try {
+        addOllamaConsoleLine('Obteniendo lista de modelos...', 'command');
+        
+        const response = await fetch('/api/ollama/models-for-actions');
+        const data = await response.json();
+        
+        if (!data.available || data.models.length === 0) {
+            addOllamaConsoleLine('No hay modelos disponibles o Ollama no está ejecutándose', 'warning');
+            return;
+        }
+        
+        const { value: selectedModel } = await Swal.fire({
+            title: '🦙 Seleccionar Modelo',
+            text: 'Elige un modelo para ejecutar o detener:',
+            input: 'select',
+            inputOptions: data.models.reduce((options, model) => {
+                options[model] = model;
+                return options;
+            }, {}),
+            inputPlaceholder: 'Selecciona un modelo',
+            showCancelButton: true,
+            confirmButtonText: 'Continuar',
+            cancelButtonText: 'Cancelar',
+            inputValidator: (value) => {
+                if (!value) {
+                    return 'Debes seleccionar un modelo';
+                }
+            }
+        });
+        
+        if (selectedModel) {
+            const { value: action } = await Swal.fire({
+                title: `🔧 Acción para ${selectedModel}`,
+                text: '¿Qué acción quieres realizar?',
+                input: 'select',
+                inputOptions: {
+                    'run': '▶️ Ejecutar modelo (run)',
+                    'stop': '⏹️ Detener modelo (stop)',
+                    'show': 'ℹ️ Mostrar información (show)'
+                },
+                inputPlaceholder: 'Selecciona una acción',
+                showCancelButton: true,
+                confirmButtonText: 'Ejecutar',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Debes seleccionar una acción';
+                    }
+                }
+            });
+            
+            if (action) {
+                const fullCommand = `${action} ${selectedModel}`;
+                await executeOllamaCommand(fullCommand);
+            }
+        }
+        
+    } catch (error) {
+        addOllamaConsoleLine(`Error al obtener modelos: ${error.message}`, 'error');
+    }
+}
+
+// Limpiar consola Ollama
+function clearOllamaConsole() {
+    const console = document.getElementById('ollamaConsoleOutput');
+    console.innerHTML = `
+        <div class="console-line">
+            <span class="text-success">ollama-console@web:</span><span class="text-info">~$</span> <span class="text-muted">Consola limpiada</span>
+        </div>
+        <div class="console-line">
+            <span class="text-muted">═══════════════════════════════════════════════════</span>
+        </div>
+    `;
+}
+
+// Event listener para Enter en el input de comando
+document.addEventListener('DOMContentLoaded', function() {
+    const commandInput = document.getElementById('ollamaCommandInput');
+    if (commandInput) {
+        commandInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                executeCustomOllamaCommand();
+            }
+        });
+    }
+});

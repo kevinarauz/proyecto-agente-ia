@@ -123,6 +123,67 @@
                     </div>
                 </div>
 
+                <!-- Consola Ollama -->
+                <div class="card mb-4" data-aos="fade-up" data-aos-delay="150">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-terminal me-2"></i>
+                            Consola Ollama
+                            <button class="btn btn-outline-light btn-sm float-end" onclick="clearOllamaConsole()">
+                                <i class="fas fa-trash"></i> Limpiar
+                            </button>
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Comandos rápidos -->
+                        <div class="bg-light p-3 border-bottom">
+                            <small class="text-muted d-block mb-2">Comandos rápidos:</small>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="executeOllamaCommand('ps')">
+                                    <i class="fas fa-list me-1"></i>ollama ps
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="executeOllamaCommand('list')">
+                                    <i class="fas fa-server me-1"></i>ollama list
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="executeOllamaCommand('serve')">
+                                    <i class="fas fa-play me-1"></i>ollama serve
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm" onclick="showOllamaModelActions()">
+                                    <i class="fas fa-cog me-1"></i>Acciones de modelos
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Terminal output -->
+                        <div class="console-output" id="ollamaConsoleOutput" style="height: 300px; overflow-y: auto; background-color: #1e1e1e; color: #ffffff; padding: 15px; font-family: 'Courier New', monospace; font-size: 14px;">
+                            <div class="console-line">
+                                <span class="text-success">ollama-console@web:</span><span class="text-info">~$</span> <span class="text-muted">Bienvenido a la consola Ollama integrada</span>
+                            </div>
+                            <div class="console-line">
+                                <span class="text-muted">Usa los comandos rápidos o escribe comandos personalizados abajo</span>
+                            </div>
+                            <div class="console-line">
+                                <span class="text-muted">═══════════════════════════════════════════════════</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Input para comandos personalizados -->
+                        <div class="p-3 bg-dark">
+                            <div class="input-group">
+                                <span class="input-group-text bg-secondary text-white">ollama</span>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" 
+                                       id="ollamaCommandInput" 
+                                       placeholder="Escribe un comando (ej: ps, list, run gemma3:4b, stop phi3)"
+                                       style="font-family: 'Courier New', monospace;">
+                                <button class="btn btn-primary" onclick="executeCustomOllamaCommand()">
+                                    <i class="fas fa-paper-plane"></i> Ejecutar
+                                </button>
+                            </div>
+                            <small class="text-muted">Comandos disponibles: ps, list, serve, run &lt;modelo&gt;, stop &lt;modelo&gt;</small>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Chat Container -->
                 <div class="card chat-container" data-aos="fade-up" data-aos-delay="200">
                     <div class="card-header bg-gradient text-white">

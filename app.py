@@ -1838,6 +1838,163 @@ def get_running_ollama_models():
     except Exception as e:
         return jsonify({'error': f'Error al obtener modelos en ejecución: {str(e)}'}), 500
 
+@app.route('/api/ollama/console', methods=['POST'])
+def ollama_console_command():
+    """Ejecutar comandos de consola Ollama"""
+    try:
+        import subprocess
+        import json
+        
+        data = request.get_json()
+        command = data.get('command', '').strip()
+        
+        if not command:
+            return jsonify({'error': 'Comando vacío'}), 400
+        
+        # Lista de comandos permitidos por seguridad
+        allowed_commands = ['ps', 'list', 'serve', 'run', 'stop', 'show', 'create', 'rm', 'cp', 'push', 'pull']
+        
+        # Parsear el comando
+        cmd_parts = command.split()
+        if not cmd_parts or cmd_parts[0] not in allowed_commands:
+            return jsonify({
+                'error': f'Comando no permitido. Comandos disponibles: {", ".join(allowed_commands)}',
+                'output': '',
+                'success': False
+            }), 400
+        
+        # Construir comando completo
+        full_command = ['ollama'] + cmd_parts
+        
+        try:
+            # Ejecutar comando con timeout
+            if cmd_parts[0] == 'serve':
+                # Para serve, iniciar en background
+                process = subprocess.Popen(
+                    full_command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                )
+                return jsonify({
+                    'command': command,
+                    'output': 'Ollama serve iniciado en background. Verifica el estado con "ollama ps".',
+                    'success': True,
+                    'background': True
+                })
+            else:
+                # Para otros comandos, ejecutar y obtener output
+                result = subprocess.run(
+                    full_command,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False
+                )
+                
+                # Combinar stdout y stderr
+                output = ''
+                if result.stdout:
+                    output += result.stdout
+                if result.stderr:
+                    output += '\n' + result.stderr if output else result.stderr
+                
+                if not output:
+                    output = f'Comando "{command}" ejecutado exitosamente (sin output)'
+                
+                return jsonify({
+                    'command': command,
+                    'output': output.strip(),
+                    'success': result.returncode == 0,
+                    'return_code': result.returncode
+                })
+                
+        except subprocess.TimeoutExpired:
+            return jsonify({
+                'command': command,
+                'output': 'Error: Comando excedió el tiempo límite (30s)',
+                'success': False,
+                'timeout': True
+            }), 408
+            
+        except subprocess.CalledProcessError as e:
+            return jsonify({
+                'command': command,
+                'output': f'Error ejecutando comando: {e.stderr if e.stderr else str(e)}',
+                'success': False,
+                'error': str(e)
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'error': f'Error interno del servidor: {str(e)}',
+            'output': '',
+            'success': False
+        }), 500
+
+@app.route('/api/ollama/models-for-actions', methods=['GET'])
+def get_ollama_models_for_actions():
+    """Obtener lista de modelos para acciones (run/stop)"""
+    try:
+        import requests
+        import subprocess
+        
+        # Intentar obtener modelos via API REST
+        try:
+            response = requests.get(f"{Config.OLLAMA_BASE_URL}/api/tags", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                models = [model['name'] for model in data.get('models', [])]
+                return jsonify({
+                    'models': models,
+                    'source': 'api',
+                    'available': True
+                })
+        except:
+            pass
+        
+        # Si falla la API, intentar con comando
+        try:
+            result = subprocess.run(
+                ['ollama', 'list'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')[1:]  # Skip header
+                models = []
+                for line in lines:
+                    if line.strip():
+                        # Extraer nombre del modelo (primera columna)
+                        parts = line.split()
+                        if parts:
+                            models.append(parts[0])
+                
+                return jsonify({
+                    'models': models,
+                    'source': 'command',
+                    'available': True
+                })
+        except:
+            pass
+        
+        return jsonify({
+            'models': [],
+            'source': 'none',
+            'available': False,
+            'error': 'No se pudo obtener lista de modelos'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'models': [],
+            'available': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
     print("🤖 Iniciando aplicación de IA con Agentes...")
     print(f"🧠 Modelos disponibles: {', '.join(available_models)}")

@@ -456,3 +456,127 @@ header h1 {
 .text-primary {
     color: #0056b3 !important;
 }
+
+/* ========================
+   CONSOLA OLLAMA STYLES
+   ======================== */
+
+.console-output {
+    background-color: #1e1e1e !important;
+    color: #ffffff;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    border: 1px solid #333;
+    border-radius: 4px;
+}
+
+.console-line {
+    margin: 2px 0;
+    padding: 1px 0;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.console-line:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Scroll personalizado para la consola */
+.console-output::-webkit-scrollbar {
+    width: 8px;
+}
+
+.console-output::-webkit-scrollbar-track {
+    background: #2d2d2d;
+    border-radius: 4px;
+}
+
+.console-output::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.console-output::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+/* Input de comando personalizado */
+#ollamaCommandInput {
+    background-color: #2d2d2d !important;
+    border-color: #555 !important;
+    color: #ffffff !important;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+}
+
+#ollamaCommandInput:focus {
+    background-color: #2d2d2d !important;
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    color: #ffffff !important;
+}
+
+#ollamaCommandInput::placeholder {
+    color: #888 !important;
+}
+
+/* Botones de comandos rápidos */
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+}
+
+/* Animación para nuevas líneas de consola */
+@keyframes fadeInConsole {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.console-line {
+    animation: fadeInConsole 0.3s ease-out;
+}
+
+/* Estilos para diferentes tipos de mensaje */
+.console-line.text-success {
+    color: #28a745 !important;
+}
+
+.console-line.text-danger {
+    color: #dc3545 !important;
+}
+
+.console-line.text-warning {
+    color: #ffc107 !important;
+}
+
+.console-line.text-info {
+    color: #17a2b8 !important;
+}
+
+.console-line.text-light {
+    color: #f8f9fa !important;
+}
+
+/* Responsive para la consola */
+@media (max-width: 768px) {
+    .console-output {
+        height: 200px !important;
+        font-size: 12px;
+    }
+    
+    .d-flex.flex-wrap.gap-2 {
+        flex-direction: column;
+    }
+    
+    .d-flex.flex-wrap.gap-2 .btn {
+        margin-bottom: 5px;
+        width: 100%;
+    }
+}
