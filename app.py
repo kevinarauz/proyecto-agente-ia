@@ -390,6 +390,79 @@ def crear_herramienta_busqueda():
         func=busqueda_web_avanzada
     )
 
+def ejecutar_comando_ollama(command: str) -> str:
+    """Ejecuta comandos de Ollama y retorna el resultado"""
+    try:
+        import subprocess
+        import json
+        
+        command = command.strip()
+        if not command:
+            return "❌ Error: Comando vacío"
+        
+        # Lista de comandos permitidos por seguridad
+        allowed_commands = ['ps', 'list', 'serve', 'run', 'stop', 'show', 'create', 'rm', 'cp', 'push', 'pull']
+        
+        # Parsear el comando
+        cmd_parts = command.split()
+        if not cmd_parts or cmd_parts[0] not in allowed_commands:
+            return f"❌ Error: Comando no permitido. Comandos disponibles: {', '.join(allowed_commands)}"
+        
+        # Construir comando completo
+        full_command = ['ollama'] + cmd_parts
+        
+        try:
+            # Ejecutar comando con timeout
+            if cmd_parts[0] == 'serve':
+                # Para serve, iniciar en background
+                process = subprocess.Popen(
+                    full_command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                )
+                return "✅ Ollama serve iniciado en background. Verifica el estado con 'ollama ps'."
+            else:
+                # Para otros comandos, ejecutar y obtener output
+                result = subprocess.run(
+                    full_command,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False
+                )
+                
+                # Combinar stdout y stderr
+                output = ''
+                if result.stdout:
+                    output += result.stdout
+                if result.stderr:
+                    output += result.stderr
+                
+                if not output:
+                    output = f"✅ Comando '{command}' ejecutado exitosamente (sin output)"
+                
+                return f"📋 Resultado de 'ollama {command}':\n{output}"
+                
+        except subprocess.TimeoutExpired:
+            return f"⏰ Error: Timeout al ejecutar comando 'ollama {command}' (>30s)"
+        except subprocess.CalledProcessError as e:
+            return f"❌ Error al ejecutar comando 'ollama {command}': {e}"
+        except Exception as e:
+            return f"❌ Error inesperado: {str(e)}"
+            
+    except Exception as e:
+        return f"❌ Error al ejecutar comando Ollama: {str(e)}"
+
+def crear_herramienta_ollama():
+    """Crea una herramienta para ejecutar comandos Ollama"""
+    return Tool(
+        name="ollama_command",
+        description="Ejecuta comandos de Ollama para gestionar modelos de IA. Comandos disponibles: ps (ver modelos en ejecución), list (listar modelos), serve (iniciar servicio), run <modelo> (ejecutar modelo), stop <modelo> (detener modelo), show <modelo> (info del modelo), pull <modelo> (descargar modelo). Input debe ser el comando sin 'ollama' (ej: 'ps', 'list', 'run llama3')",
+        func=ejecutar_comando_ollama
+    )
+
 def formatear_respuesta_clima(clima_data: dict, modelo_seleccionado: str) -> str:
     """Formatea la respuesta del clima de manera atractiva"""
     if clima_data['success']:
@@ -432,28 +505,39 @@ Quito tiene un clima subtropical de montaña con temperaturas relativamente esta
 
 # Configurar herramientas para el agente
 herramienta_busqueda = crear_herramienta_busqueda()
-tools = [herramienta_busqueda, DuckDuckGoSearchRun()]
+herramienta_ollama = crear_herramienta_ollama()
+tools = [herramienta_busqueda, herramienta_ollama, DuckDuckGoSearchRun()]
 
 # Prompt optimizado para búsquedas generales
 agent_prompt = PromptTemplate.from_template("""
-Eres un asistente de IA especializado en proporcionar respuestas precisas y actuales. Tienes acceso a herramientas de búsqueda web.
+Eres un asistente de IA especializado en proporcionar respuestas precisas y actuales. Tienes acceso a herramientas de búsqueda web y gestión de modelos Ollama.
 
 Herramientas disponibles:
 {tools}
 
 REGLAS IMPORTANTES: 
 1. SIEMPRE usa búsqueda web para: noticias recientes, precios actuales, eventos deportivos, información actualizada
-2. NUNCA digas que no tienes acceso a información en tiempo real - ¡SÍ LO TIENES!
-3. Si una búsqueda falla, intenta con términos diferentes
-4. Proporciona respuestas útiles basadas en los resultados obtenidos
-5. Adapta tu búsqueda según el tipo de información solicitada
+2. USA ollama_command para: gestionar modelos Ollama, ver modelos disponibles, ejecutar/detener modelos, obtener información de modelos
+3. NUNCA digas que no tienes acceso a información en tiempo real - ¡SÍ LO TIENES!
+4. Si una búsqueda falla, intenta con términos diferentes
+5. Proporciona respuestas útiles basadas en los resultados obtenidos
+6. Para comandos Ollama, usa solo el comando sin 'ollama' (ej: 'ps', 'list', 'run llama3')
+
+COMANDOS OLLAMA DISPONIBLES:
+• ps - Ver modelos en ejecución
+• list - Listar todos los modelos instalados
+• serve - Iniciar el servicio Ollama
+• run <modelo> - Ejecutar un modelo específico
+• stop <modelo> - Detener un modelo específico
+• show <modelo> - Mostrar información detallada de un modelo
+• pull <modelo> - Descargar un nuevo modelo
 
 Formato OBLIGATORIO:
 Question: la pregunta que debes responder
-Thought: necesito buscar información actual sobre [tema específico]
-Action: duckduckgo_search
-Action Input: [términos de búsqueda específicos y efectivos]
-Observation: [resultados de la búsqueda]
+Thought: necesito buscar información actual sobre [tema específico] O necesito ejecutar comando Ollama [comando]
+Action: duckduckgo_search O web_search O ollama_command
+Action Input: [términos de búsqueda específicos] O [comando ollama sin 'ollama']
+Observation: [resultados de la búsqueda o comando]
 Thought: ahora tengo información actual y puedo responder
 Final Answer: [respuesta completa en español basada en los resultados]
 
@@ -678,10 +762,22 @@ def chat() -> Union[Response, Tuple[Response, int]]:
             'eventos', 'acontecimiento', 'qué pasó', 'qué está pasando'
         ]
         
-        necesita_busqueda_web = any(palabra in pregunta.lower() for palabra in palabras_actualidad)
+        # Detección de comandos Ollama para activar modo agente
+        palabras_ollama = [
+            'ollama ps', 'ollama list', 'ollama serve', 'ollama run', 'ollama stop', 
+            'ollama show', 'ollama pull', 'modelos ollama', 'ver modelos', 
+            'ejecutar modelo', 'detener modelo', 'instalar modelo', 'descargar modelo',
+            'estado ollama', 'servicio ollama', 'gestionar ollama', 'comandos ollama'
+        ]
         
-        if necesita_busqueda_web and permitir_internet and modo == 'simple':
-            print(f"🔄 Detectada consulta que requiere información actual, cambiando a modo agente")
+        necesita_busqueda_web = any(palabra in pregunta.lower() for palabra in palabras_actualidad)
+        necesita_comando_ollama = any(palabra in pregunta.lower() for palabra in palabras_ollama)
+        
+        if (necesita_busqueda_web or necesita_comando_ollama) and permitir_internet and modo == 'simple':
+            if necesita_comando_ollama:
+                print(f"🤖 Detectada consulta de comandos Ollama, cambiando a modo agente")
+            else:
+                print(f"🔄 Detectada consulta que requiere información actual, cambiando a modo agente")
             modo = 'agente'
 
         # Forzar modo simple si internet está deshabilitado y se intenta usar modos que requieren web
