@@ -1262,3 +1262,263 @@ async function consultarClimaRapido() {
         setLoading(false);
     }
 }
+
+// ========================
+// CONTROL DE MODELOS
+// ========================
+
+async function refreshModelsStatus() {
+    const container = document.getElementById('modelsStatusContainer');
+    container.innerHTML = `
+        <div class="col-12 text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Verificando estado de modelos...</span>
+            </div>
+            <p class="mt-2 text-muted">Actualizando estado de modelos...</p>
+        </div>
+    `;
+
+    try {
+        const response = await fetch('/api/models/status');
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayModelsStatus(data);
+        } else {
+            throw new Error(data.error || 'Error al obtener estado de modelos');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        container.innerHTML = `
+            <div class="col-12 text-center">
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error al verificar estado de modelos: ${error.message}
+                </div>
+            </div>
+        `;
+    }
+}
+
+function displayModelsStatus(data) {
+    const container = document.getElementById('modelsStatusContainer');
+    
+    let html = '';
+    
+    // Ollama Status
+    html += `
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-header ${data.ollama.available ? 'bg-success' : 'bg-danger'} text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cube me-2"></i>
+                        Ollama
+                        <span class="badge ${data.ollama.available ? 'bg-light text-success' : 'bg-light text-danger'} ms-2">
+                            ${data.ollama.available ? 'Online' : 'Offline'}
+                        </span>
+                    </h6>
+                </div>
+                <div class="card-body p-3">
+                    ${data.ollama.available ? `
+                        <div class="mb-2">
+                            <small class="text-muted">Modelos disponibles (${data.ollama.models.length}):</small>
+                        </div>
+                        <div class="models-list" style="max-height: 120px; overflow-y: auto;">
+                            ${data.ollama.models.map(model => `
+                                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                                    <small class="text-truncate" title="${model.name}">
+                                        <i class="fas fa-robot me-1 text-primary"></i>
+                                        ${model.name}
+                                    </small>
+                                    <small class="text-muted">${formatSize(model.size)}</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="d-flex gap-1 mt-2">
+                            <button class="btn btn-outline-danger btn-sm" onclick="controlOllama('stop')">
+                                <i class="fas fa-stop"></i> Detener
+                            </button>
+                        </div>
+                    ` : `
+                        <p class="text-muted mb-2">Ollama no está ejecutándose</p>
+                        <button class="btn btn-outline-success btn-sm" onclick="controlOllama('start')">
+                            <i class="fas fa-play"></i> Iniciar
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // LM Studio Status
+    html += `
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-header ${data.lmstudio.available ? 'bg-success' : 'bg-warning'} text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-desktop me-2"></i>
+                        LM Studio
+                        <span class="badge ${data.lmstudio.available ? 'bg-light text-success' : 'bg-light text-warning'} ms-2">
+                            ${data.lmstudio.available ? 'Online' : 'Offline'}
+                        </span>
+                    </h6>
+                </div>
+                <div class="card-body p-3">
+                    ${data.lmstudio.available ? `
+                        <div class="mb-2">
+                            <small class="text-muted">Modelos cargados (${data.lmstudio.models.length}):</small>
+                        </div>
+                        <div class="models-list" style="max-height: 120px; overflow-y: auto;">
+                            ${data.lmstudio.models.map(model => `
+                                <div class="py-1 border-bottom">
+                                    <small class="text-truncate d-block" title="${model.id}">
+                                        <i class="fas fa-robot me-1 text-success"></i>
+                                        ${model.id}
+                                    </small>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-outline-warning btn-sm" onclick="controlLMStudio('stop')">
+                                <i class="fas fa-stop"></i> Instrucciones
+                            </button>
+                        </div>
+                    ` : `
+                        <p class="text-muted mb-2">LM Studio no está ejecutándose</p>
+                        <button class="btn btn-outline-success btn-sm" onclick="controlLMStudio('start')">
+                            <i class="fas fa-play"></i> Instrucciones
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Google Gemini Status
+    html += `
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-header ${data.gemini.available ? 'bg-success' : 'bg-secondary'} text-white">
+                    <h6 class="mb-0">
+                        <i class="fab fa-google me-2"></i>
+                        Google Gemini
+                        <span class="badge ${data.gemini.available ? 'bg-light text-success' : 'bg-light text-secondary'} ms-2">
+                            ${data.gemini.available ? 'Configurado' : 'No configurado'}
+                        </span>
+                    </h6>
+                </div>
+                <div class="card-body p-3">
+                    ${data.gemini.available ? `
+                        <p class="text-success mb-0">
+                            <i class="fas fa-check-circle me-1"></i>
+                            API Key configurada correctamente
+                        </p>
+                        <small class="text-muted">Modelo: Gemini-1.5-Flash</small>
+                    ` : `
+                        <p class="text-muted mb-2">API Key no configurada</p>
+                        <small class="text-muted">Añadir GOOGLE_API_KEY al archivo .env</small>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function formatSize(size) {
+    if (typeof size === 'number') {
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let i = 0;
+        while (size >= 1024 && i < units.length - 1) {
+            size /= 1024;
+            i++;
+        }
+        return `${size.toFixed(1)} ${units[i]}`;
+    }
+    return size || 'N/A';
+}
+
+async function controlOllama(action) {
+    try {
+        const response = await fetch(`/api/models/ollama/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Ollama',
+                text: data.message,
+                confirmButtonColor: '#007bff'
+            });
+            
+            // Actualizar estado después de 2 segundos
+            setTimeout(refreshModelsStatus, 2000);
+        } else {
+            throw new Error(data.error || 'Error al controlar Ollama');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message,
+            confirmButtonColor: '#007bff'
+        });
+    }
+}
+
+async function controlLMStudio(action) {
+    try {
+        const response = await fetch(`/api/models/lmstudio/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            Swal.fire({
+                icon: 'info',
+                title: 'LM Studio',
+                html: `
+                    <p>${data.message}</p>
+                    <div class="text-start mt-3">
+                        <strong>Instrucciones:</strong>
+                        <ol class="mt-2">
+                            ${data.instructions.map(instruction => `<li>${instruction}</li>`).join('')}
+                        </ol>
+                    </div>
+                `,
+                confirmButtonColor: '#007bff'
+            });
+            
+            // Actualizar estado después de unos segundos
+            setTimeout(refreshModelsStatus, 3000);
+        } else {
+            throw new Error(data.error || 'Error al controlar LM Studio');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message,
+            confirmButtonColor: '#007bff'
+        });
+    }
+}
+
+// Cargar estado de modelos al inicializar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar estado inicial después de un breve delay
+    setTimeout(refreshModelsStatus, 1000);
+});

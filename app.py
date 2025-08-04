@@ -151,9 +151,9 @@ models = {}
 ollama_models = [
     ('llama3', 'Llama3 8B'),
     ('deepseek-coder', 'DeepSeek Coder'),
-    ('deepseek-r1:8b', 'DeepSeek R1 8B'),
     ('phi3', 'Microsoft Phi-3'),
-    ('gemma:2b', 'Google Gemma 2B')
+    ('gemma:2b', 'Google Gemma 2B'),
+    ('gemma3:4b', 'Google Gemma3 4B')
 ]
 
 for model_key, model_name in ollama_models:
@@ -1591,6 +1591,130 @@ def agente_general() -> Union[Response, Tuple[Response, int]]:
         
     except Exception as e:
         return jsonify({'error': f'Error en agente general: {str(e)}'}), 500
+
+@app.route('/api/models/status', methods=['GET'])
+def get_models_status():
+    """Obtener el estado actual de todos los modelos"""
+    try:
+        import requests
+        
+        model_status = {
+            'ollama': {
+                'available': False,
+                'models': []
+            },
+            'lmstudio': {
+                'available': False,
+                'models': []
+            },
+            'gemini': {
+                'available': bool(Config.GOOGLE_API_KEY)
+            }
+        }
+        
+        # Verificar Ollama
+        try:
+            response = requests.get(f"{Config.OLLAMA_BASE_URL}/api/tags", timeout=5)
+            if response.status_code == 200:
+                model_status['ollama']['available'] = True
+                ollama_models_data = response.json().get('models', [])
+                model_status['ollama']['models'] = [
+                    {
+                        'name': model['name'],
+                        'size': model.get('size', 'Unknown'),
+                        'modified': model.get('modified_at', 'Unknown')
+                    }
+                    for model in ollama_models_data
+                ]
+        except:
+            pass
+            
+        # Verificar LM Studio
+        try:
+            response = requests.get(f"{Config.LMSTUDIO_BASE_URL}/v1/models", timeout=5)
+            if response.status_code == 200:
+                model_status['lmstudio']['available'] = True
+                lm_models_data = response.json().get('data', [])
+                model_status['lmstudio']['models'] = [
+                    {
+                        'id': model['id'],
+                        'object': model.get('object', 'model')
+                    }
+                    for model in lm_models_data
+                ]
+        except:
+            pass
+            
+        return jsonify(model_status)
+        
+    except Exception as e:
+        return jsonify({'error': f'Error al obtener estado de modelos: {str(e)}'}), 500
+
+@app.route('/api/models/ollama/<action>', methods=['POST'])
+def control_ollama(action):
+    """Controlar modelos de Ollama"""
+    try:
+        import subprocess
+        
+        if action == 'start':
+            # Intentar iniciar Ollama serve en background
+            try:
+                subprocess.Popen(
+                    ['ollama', 'serve'],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                )
+                return jsonify({'message': 'Ollama iniciado en background', 'status': 'started'})
+            except Exception as e:
+                return jsonify({'error': f'Error al iniciar Ollama: {str(e)}'}), 500
+                
+        elif action == 'stop':
+            # En Windows, intentar terminar el proceso ollama
+            try:
+                if os.name == 'nt':
+                    subprocess.run(['taskkill', '/F', '/IM', 'ollama.exe'], check=False)
+                else:
+                    subprocess.run(['pkill', 'ollama'], check=False)
+                return jsonify({'message': 'Ollama detenido', 'status': 'stopped'})
+            except Exception as e:
+                return jsonify({'error': f'Error al detener Ollama: {str(e)}'}), 500
+                
+        else:
+            return jsonify({'error': 'Acción no válida. Use start o stop'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'Error en control de Ollama: {str(e)}'}), 500
+
+@app.route('/api/models/lmstudio/<action>', methods=['POST'])
+def control_lmstudio(action):
+    """Controlar LM Studio"""
+    try:
+        if action == 'start':
+            # Mostrar mensaje de instrucciones para LM Studio
+            return jsonify({
+                'message': 'Para iniciar LM Studio, abra la aplicación manualmente desde el escritorio o menú inicio.',
+                'instructions': [
+                    '1. Abrir LM Studio desde el escritorio',
+                    '2. Cargar un modelo desde la pestaña "My Models"',
+                    '3. Asegurarse de que el servidor local esté en puerto 1234'
+                ],
+                'status': 'manual_start_required'
+            })
+            
+        elif action == 'stop':
+            return jsonify({
+                'message': 'Para detener LM Studio, cierre la aplicación manualmente.',
+                'instructions': [
+                    '1. Hacer clic en el botón "Stop" en LM Studio',
+                    '2. Cerrar la aplicación LM Studio'
+                ],
+                'status': 'manual_stop_required'
+            })
+            
+        else:
+            return jsonify({'error': 'Acción no válida. Use start o stop'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'Error en control de LM Studio: {str(e)}'}), 500
 
 if __name__ == '__main__':
     print("🤖 Iniciando aplicación de IA con Agentes...")

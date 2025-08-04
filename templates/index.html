@@ -17,7 +17,7 @@
                 <i class="fas fa-robot me-3"></i>
                 Agente de IA
             </h1>
-            <p class="lead text-muted">Asistente inteligente multi-modelo con Gemini, Llama3, DeepSeek Coder, DeepSeek R1, Phi-3 y Gemma</p>
+            <p class="lead text-muted">Asistente inteligente multi-modelo con Gemini, Llama3, DeepSeek Coder, Phi-3, Gemma 2B/3 4B y LM Studio</p>
         </header>
 
         <div class="row justify-content-center">
@@ -43,12 +43,16 @@
                                             🦙 Llama3 8B (Local)
                                         {% elif modelo == 'deepseek-coder' %}
                                             💻 DeepSeek Coder (Local)
-                                        {% elif modelo == 'deepseek-r1:8b' %}
-                                            🧮 DeepSeek R1 8B (Local)
                                         {% elif modelo == 'phi3' %}
                                             🔬 Microsoft Phi-3 (Local)
                                         {% elif modelo == 'gemma:2b' %}
                                             💎 Google Gemma 2B (Local)
+                                        {% elif modelo == 'gemma3:4b' %}
+                                            � Google Gemma3 4B (Local)
+                                        {% elif modelo == 'lmstudio-gemma' %}
+                                            � LM Studio - Gemma 3-12B
+                                        {% elif modelo == 'lmstudio-mistral' %}
+                                            🟢 LM Studio - Mistral 7B
                                         {% else %}
                                             🤖 {{ modelo|title }}
                                         {% endif %}
@@ -90,6 +94,30 @@
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de Control de Modelos -->
+                <div class="card mb-4" data-aos="fade-up" data-aos-delay="100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-server me-2"></i>
+                            Control de Modelos
+                            <button class="btn btn-outline-light btn-sm float-end" onclick="refreshModelsStatus()">
+                                <i class="fas fa-sync-alt"></i> Actualizar
+                            </button>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="modelsStatusContainer">
+                            <!-- El contenido se carga dinámicamente -->
+                            <div class="col-12 text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando estado de modelos...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Verificando estado de modelos...</p>
                             </div>
                         </div>
                     </div>
